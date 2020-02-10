@@ -19,12 +19,12 @@ final class UserController {
 			.flatMap { user in
 				let activeMatchesFuture = try user.matches
 					.query(on: request)
-					.filter(\.isActive == true)
+					.filter(\.status == .active)
 					.all()
 
 				let pastMatchesFuture = try user.matches
 					.query(on: request)
-					.filter(\.isActive == false)
+					.filter(\.status == .ended)
 					.all()
 
 				return activeMatchesFuture.and(pastMatchesFuture).map {

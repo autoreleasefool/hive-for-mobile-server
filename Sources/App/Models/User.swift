@@ -75,7 +75,7 @@ struct CreateUserRequest: Content {
 // MARK: Response
 
 struct UserResponse: Content {
-	let id: UUID
+	let id: User.ID
 	let displayName: String
 	let elo: Double
 	let avatarUrl: String?

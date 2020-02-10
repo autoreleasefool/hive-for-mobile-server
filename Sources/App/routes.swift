@@ -7,4 +7,5 @@ public func routes(_ router: Router) throws {
 
 	let apiRouter = router.grouped("api")
 	try apiRouter.register(collection: UserController())
+	try apiRouter.register(collection: MatchController())
 }

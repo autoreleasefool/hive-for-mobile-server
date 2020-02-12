@@ -2,7 +2,7 @@ import Vapor
 import FluentSQLite
 import HiveEngine
 
-enum MatchStatus: Int, Codable {
+enum MatchStatus: Int, SQLiteEnumType {
 	/// A match that is waiting for an opponent to join
 	case open = 0
 	/// A match that has an opponent but has not started
@@ -11,6 +11,10 @@ enum MatchStatus: Int, Codable {
 	case active = 2
 	/// A match that has ended
 	case ended = 3
+
+	static func reflectDecoded() throws -> (MatchStatus, MatchStatus) {
+		return (.open, .notStarted)
+	}
 }
 
 final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
@@ -42,7 +46,7 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	private(set) var duration: TimeInterval?
 
 	/// Status of the game, if it has begun or ended
-	private(set) var rawStatus: Int
+	private(set) var status: MatchStatus
 	/// `true` if the game is being played asynchronously turn based.
 	private(set) var isAsyncPlay: Bool
 
@@ -50,21 +54,12 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 		\.createdAt
 	}
 
-	var status: MatchStatus {
-		get {
-			return MatchStatus(rawValue: rawStatus)!
-		}
-		set {
-			self.rawStatus = newValue.rawValue
-		}
-	}
-
 	init(withHost host: User) throws {
 		self.hostId = try host.requireID()
 		self.hostElo = host.elo
 		self.hostIsWhite = true
 		self.moves = []
-		self.rawStatus = MatchStatus.notStarted.rawValue
+		self.status = .notStarted
 		self.isAsyncPlay = false
 
 		let newState = GameState()
@@ -79,7 +74,7 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 
 // MARK: - Response
 
-struct MatchResponse: Content {
+struct MatchDetailsResponse: Content {
 	let id: Match.ID
 	let hostElo: Double
 	let opponentElo: Double?
@@ -92,8 +87,8 @@ struct MatchResponse: Content {
 	let status: MatchStatus
 	let isAsyncPlay: Bool
 
-	var host: UserResponse?
-	var opponent: UserResponse?
+	var host: UserSummaryResponse?
+	var opponent: UserSummaryResponse?
 
 	init(from match: Match) throws {
 		self.id = try match.requireID()

@@ -10,19 +10,19 @@ final class MatchController {
 		return match.save(on: request)
 	}
 
-	func details(_ request: Request) throws -> Future<MatchResponse> {
+	func details(_ request: Request) throws -> Future<MatchDetailsResponse> {
 		try request.parameters.next(Match.self)
 			.flatMap { match in
-				var response = try MatchResponse(from: match)
+				var response = try MatchDetailsResponse(from: match)
 				return User.query(on: request)
 					.filter(\.id ~~ [match.hostId, match.opponentId])
 					.all()
 					.map {
 						try $0.forEach {
 							if $0.id == match.hostId {
-								response.host = try UserResponse(from: $0)
+								response.host = try UserSummaryResponse(from: $0)
 							} else if $0.id == match.opponentId {
-								response.opponent = try UserResponse(from: $0)
+								response.opponent = try UserSummaryResponse(from: $0)
 							}
 						}
 
@@ -31,9 +31,9 @@ final class MatchController {
 			}
 	}
 
-	func openMatches(_ request: Request) throws -> Future<[MatchResponse]> {
+	func openMatches(_ request: Request) throws -> Future<[MatchDetailsResponse]> {
 		Match.query(on: request)
-			.filter(\.rawStatus == MatchStatus.open.rawValue)
+			.filter(\.status == .open)
 			.join(\User.id, to: \Match.hostId)
 			.alsoDecode(User.self)
 			.join(\User.id, to: \Match.opponentId, method: .left)
@@ -42,22 +42,22 @@ final class MatchController {
 			.all()
 			.map { try $0.map { (matchAndHost, opponent) in
 				let (match, host) = matchAndHost
-				var response = try MatchResponse(from: match)
-				response.host = try UserResponse(from: host)
-				response.opponent = try UserResponse(from: User(opponent))
+				var response = try MatchDetailsResponse(from: match)
+				response.host = try UserSummaryResponse(from: host)
+				response.opponent = try UserSummaryResponse(from: User(opponent))
 				return response
 			}}
 	}
 
-	func spectatableMatches(_ request: Request) throws -> Future<[MatchResponse]> {
+	func spectatableMatches(_ request: Request) throws -> Future<[MatchDetailsResponse]> {
 		Match.query(on: request)
-			.filter(\.rawStatus ~~ [MatchStatus.active.rawValue, MatchStatus.notStarted.rawValue])
+			.filter(\.status ~~ [.active, .notStarted])
 			.sort(\.createdAt)
 			.all()
-			.map { try $0.map { try MatchResponse(from: $0) } }
+			.map { try $0.map { try MatchDetailsResponse(from: $0) } }
 	}
 
-	func joinMatch(_ request: Request) throws -> Future<Match> {
+	func joinMatch(_ request: Request) throws -> Future<MatchDetailsResponse> {
 		let user = try request.requireAuthenticated(User.self)
 		return try request.parameters.next(Match.self)
 			.flatMap { match in
@@ -70,6 +70,7 @@ final class MatchController {
 				}
 
 				return try match.addOpponent(user.requireID(), on: request)
+					.map { try MatchDetailsResponse(from: $0) }
 			}
 	}
 }

@@ -64,17 +64,15 @@ extension User: PasswordAuthenticatable {
 	}
 }
 
-extension User {
+extension User: TokenAuthenticatable {
+	typealias TokenType = UserToken
+
 	var sessions: Children<User, UserToken> {
 		children(\.userId)
 	}
 }
 
-extension User: TokenAuthenticatable {
-	typealias TokenType = UserToken
-}
-
-// MARK: - Request
+// MARK: - Create
 
 struct CreateUserRequest: Content {
 	let email: String
@@ -85,14 +83,27 @@ struct CreateUserRequest: Content {
 
 // MARK: - Response
 
-struct UserResponse: Content {
+struct CreateUserResponse: Content {
+	let id: User.ID
+	let email: String
+	let displayName: String
+	let avatarUrl: String?
+	let token: UserTokenResponse
+
+	init(from user: User, withToken token: UserTokenResponse) throws {
+		self.id = try user.requireID()
+		self.email = user.email
+		self.displayName = user.displayName
+		self.avatarUrl = user.avatarUrl
+		self.token = token
+	}
+}
+
+struct UserSummaryResponse: Content {
 	let id: User.ID
 	let displayName: String
 	let elo: Double
 	let avatarUrl: String?
-
-	var activeMatches: [Match]?
-	var pastMatches: [Match]?
 
 	init(from user: User) throws {
 		self.id = try user.requireID()
@@ -104,6 +115,22 @@ struct UserResponse: Content {
 	init?(from user: User?) throws {
 		guard let user = user else { return nil }
 		try self.init(from: user)
+	}
+}
+
+struct UserDetailsResponse: Content {
+	let id: User.ID
+	let displayName: String
+	let elo: Double
+	let avatarUrl: String?
+	var activeMatches: [MatchDetailsResponse] = []
+	var pastMatches: [MatchDetailsResponse] = []
+
+	init(from user: User) throws {
+		self.id = try user.requireID()
+		self.displayName = user.displayName
+		self.elo = user.elo
+		self.avatarUrl = user.avatarUrl
 	}
 }
 

@@ -43,3 +43,13 @@ extension UserToken: Token {
 		\.userId
 	}
 }
+
+// MARK: - Response
+
+struct UserTokenResponse: Content {
+	let value: String
+
+	init(from token: UserToken) {
+		self.value = token.token
+	}
+}

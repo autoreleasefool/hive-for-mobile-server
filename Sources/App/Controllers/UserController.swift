@@ -4,19 +4,19 @@ import FluentSQLite
 import Crypto
 
 final class UserController {
-	func users(_ request: Request) throws -> Future<[UserResponse]> {
+	func users(_ request: Request) throws -> Future<[UserSummaryResponse]> {
 		User.query(on: request)
 			.sort(\.displayName)
 			.all()
-			.map { try $0.map { try UserResponse(from: $0) } }
+			.map { try $0.map { try UserSummaryResponse(from: $0) } }
 	}
 
-	func summary(_ request: Request) throws -> Future<UserResponse> {
+	func summary(_ request: Request) throws -> Future<UserSummaryResponse> {
 		try request.parameters.next(User.self)
-			.map { try UserResponse(from: $0) }
+			.map { try UserSummaryResponse(from: $0) }
 	}
 
-	func details(_ request: Request) throws -> Future<UserResponse> {
+	func details(_ request: Request) throws -> Future<UserDetailsResponse> {
 		try request.parameters.next(User.self)
 			.flatMap { user in
 				Match.query(on: request)
@@ -24,16 +24,14 @@ final class UserController {
 					.sort(\.createdAt)
 					.all()
 					.map {
-						var response = try UserResponse(from: user)
-						response.activeMatches = []
-						response.pastMatches = []
+						var response = try UserDetailsResponse(from: user)
 
 						for match in $0 {
 							guard match.hostId == user.id || match.opponentId == user.id else { continue }
 							if match.status == .active {
-								response.activeMatches?.append(match)
+								response.activeMatches.append(try MatchDetailsResponse(from: match))
 							} else if match.status == .ended {
-								response.pastMatches?.append(match)
+								response.pastMatches.append(try MatchDetailsResponse(from: match))
 							}
 						}
 
@@ -42,7 +40,7 @@ final class UserController {
 			}
 	}
 
-	func create(_ request: Request) throws -> Future<UserResponse> {
+	func create(_ request: Request) throws -> Future<CreateUserResponse> {
 		try request.content.decode(CreateUserRequest.self)
 			.flatMap { user -> Future<User> in
 				User.query(on: request)
@@ -61,7 +59,10 @@ final class UserController {
 						return User(email: user.email, password: hash, displayName: user.displayName)
 							.save(on: request)
 					}
-			}.map { try UserResponse(from: $0) }
+			}.map {
+				let token = try UserToken(forUser: $0.requireID())
+				return try CreateUserResponse(from: $0, withToken: UserTokenResponse(from: token))
+			}
 	}
 
 	func login(_ request: Request) throws -> Future<UserToken> {

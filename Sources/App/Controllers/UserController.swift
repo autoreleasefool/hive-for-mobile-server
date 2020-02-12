@@ -1,10 +1,12 @@
 import Vapor
+import Fluent
 import FluentSQLite
 import Crypto
 
 final class UserController {
 	func users(_ request: Request) throws -> Future<[UserResponse]> {
 		User.query(on: request)
+			.sort(\.displayName)
 			.all()
 			.map { try $0.map { try UserResponse(from: $0) } }
 	}
@@ -17,22 +19,26 @@ final class UserController {
 	func details(_ request: Request) throws -> Future<UserResponse> {
 		try request.parameters.next(User.self)
 			.flatMap { user in
-				let activeMatchesFuture = try user.matches
-					.query(on: request)
-					.filter(\.status == .active)
+				Match.query(on: request)
+					.filter(\.status ~~ [.active, .ended])
+					.sort(\.createdAt)
 					.all()
+					.map {
+						var response = try UserResponse(from: user)
+						response.activeMatches = []
+						response.pastMatches = []
 
-				let pastMatchesFuture = try user.matches
-					.query(on: request)
-					.filter(\.status == .ended)
-					.all()
+						for match in $0 {
+							guard match.hostId == user.id || match.opponentId == user.id else { continue }
+							if match.status == .active {
+								response.activeMatches?.append(match)
+							} else if match.status == .ended {
+								response.pastMatches?.append(match)
+							}
+						}
 
-				return activeMatchesFuture.and(pastMatchesFuture).map {
-					var response = try UserResponse(from: user)
-					response.activeMatches = $0
-					response.pastMatches = $1
-					return response
-				}
+						return response
+					}
 			}
 	}
 
@@ -43,6 +49,10 @@ final class UserController {
 					.filter(\.email == user.email)
 					.first()
 					.flatMap { existingUser in
+						guard existingUser == nil else {
+							throw Abort(.badRequest, reason: "User with email already exists.")
+						}
+
 						guard user.password == user.verifyPassword else {
 							throw Abort(.badRequest, reason: "Password and verification must match.")
 						}

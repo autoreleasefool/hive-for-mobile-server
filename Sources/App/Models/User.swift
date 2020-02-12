@@ -29,6 +29,17 @@ final class User: SQLiteUUIDModel, Content, Migration, Parameter {
 		self.elo = Elo.defaultValue
 		self.isBot = false
 	}
+
+	init(id: UUID?, email: String, password: String, displayName: String, elo: Double, avatarUrl: String?, isBot: Bool, isAdmin: Bool) {
+		self.id = id
+		self.email = email
+		self.password = password
+		self.displayName = displayName
+		self.elo = elo
+		self.avatarUrl = avatarUrl
+		self.isBot = isBot
+		self.isAdmin = isAdmin
+	}
 }
 
 extension User: Validatable {
@@ -63,7 +74,7 @@ extension User: TokenAuthenticatable {
 	typealias TokenType = UserToken
 }
 
-// MARK: Request
+// MARK: - Request
 
 struct CreateUserRequest: Content {
 	let email: String
@@ -72,7 +83,7 @@ struct CreateUserRequest: Content {
 	let displayName: String
 }
 
-// MARK: Response
+// MARK: - Response
 
 struct UserResponse: Content {
 	let id: User.ID
@@ -88,5 +99,38 @@ struct UserResponse: Content {
 		self.displayName = user.displayName
 		self.elo = user.elo
 		self.avatarUrl = user.avatarUrl
+	}
+
+	init?(from user: User?) throws {
+		guard let user = user else { return nil }
+		try self.init(from: user)
+	}
+}
+
+// MARK: - Optional Decode
+
+extension User {
+	struct OptionalFields: Decodable {
+		let id: UUID?
+		let email: String?
+		let password: String?
+		let displayName: String?
+		let elo: Double?
+		let avatarUrl: String?
+		let isBot: Bool?
+		let isAdmin: Bool?
+	}
+
+	convenience init?(_ optionalFields: OptionalFields) {
+		guard let email = optionalFields.email,
+			let password = optionalFields.password,
+			let displayName = optionalFields.displayName,
+			let elo = optionalFields.elo,
+			let isBot = optionalFields.isBot,
+			let isAdmin = optionalFields.isAdmin else {
+			return nil
+		}
+
+		self.init(id: optionalFields.id, email: email, password: password, displayName: displayName, elo: elo, avatarUrl: optionalFields.avatarUrl, isBot: isBot, isAdmin: isAdmin)
 	}
 }

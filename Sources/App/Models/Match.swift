@@ -3,24 +3,31 @@ import FluentSQLite
 import HiveEngine
 
 enum MatchStatus: Int, Codable {
-	case notStarted = 0
-	case active = 1
-	case ended = 2
+	/// A match that is waiting for an opponent to join
+	case open = 0
+	/// A match that has an opponent but has not started
+	case notStarted = 1
+	/// A match in progress
+	case active = 2
+	/// A match that has ended
+	case ended = 3
 }
 
 final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	var id: UUID?
 
 	/// ID of the user that created the match
-	private(set) var hostId: UUID
+	private(set) var hostId: User.ID
+	/// ID of the user the match is played against
+	private(set) var opponentId: User.ID?
 
 	/// ELO of the host at the start of the game
-	private(set) var hostElo: Double?
+	private(set) var hostElo: Double
 	/// ELO of the opponent at the start of the game
 	private(set) var opponentElo: Double?
 
 	/// `true` if the host is White, `false` if the host is Black
-	private(set) var hostPlaysFirst: Bool
+	private(set) var hostIsWhite: Bool
 	/// Winner of the game. White, Black, or nil for a tie
 	private(set) var winner: String?
 
@@ -35,7 +42,7 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	private(set) var duration: TimeInterval?
 
 	/// Status of the game, if it has begun or ended
-	private(set) var status: MatchStatus
+	private(set) var rawStatus: Int
 	/// `true` if the game is being played asynchronously turn based.
 	private(set) var isAsyncPlay: Bool
 
@@ -43,15 +50,30 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 		\.createdAt
 	}
 
+	var status: MatchStatus {
+		get {
+			return MatchStatus(rawValue: rawStatus)!
+		}
+		set {
+			self.rawStatus = newValue.rawValue
+		}
+	}
+
 	init(withHost host: User) throws {
 		self.hostId = try host.requireID()
-		self.hostPlaysFirst = true
+		self.hostElo = host.elo
+		self.hostIsWhite = true
 		self.moves = []
-		self.status = .notStarted
+		self.rawStatus = MatchStatus.notStarted.rawValue
 		self.isAsyncPlay = false
 
 		let newState = GameState()
 		self.options = GameState.Option.encode(newState.options)
+	}
+
+	func addOpponent(_ opponent: User.ID, on conn: DatabaseConnectable) -> Future<Match> {
+		self.opponentId = opponent
+		return self.save(on: conn)
 	}
 }
 
@@ -59,10 +81,9 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 
 struct MatchResponse: Content {
 	let id: Match.ID
-	let hostId: User.ID
-	let hostElo: Double?
+	let hostElo: Double
 	let opponentElo: Double?
-	let hostPlaysFirst: Bool
+	let hostIsWhite: Bool
 	let winner: String?
 	let options: String
 	let moves: [String]
@@ -71,12 +92,14 @@ struct MatchResponse: Content {
 	let status: MatchStatus
 	let isAsyncPlay: Bool
 
+	var host: UserResponse?
+	var opponent: UserResponse?
+
 	init(from match: Match) throws {
 		self.id = try match.requireID()
-		self.hostId = match.hostId
 		self.hostElo = match.hostElo
 		self.opponentElo = match.opponentElo
-		self.hostPlaysFirst = match.hostPlaysFirst
+		self.hostIsWhite = match.hostIsWhite
 		self.winner = match.winner
 		self.options = match.options
 		self.moves = match.moves

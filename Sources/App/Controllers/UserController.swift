@@ -18,47 +18,45 @@ final class UserController {
 
 	func details(_ request: Request) throws -> Future<UserDetailsResponse> {
 		try request.parameters.next(User.self)
-			.flatMap { user in
+			.flatMap {
 				Match.query(on: request)
 					.filter(\.status ~~ [.active, .ended])
 					.sort(\.createdAt)
 					.all()
-					.map {
-						var response = try UserDetailsResponse(from: user)
-
-						for match in $0 {
-							guard match.hostId == user.id || match.opponentId == user.id else { continue }
-							if match.status == .active {
-								response.activeMatches.append(try MatchDetailsResponse(from: match))
-							} else if match.status == .ended {
-								response.pastMatches.append(try MatchDetailsResponse(from: match))
-							}
-						}
-
-						return response
+					.and(result: $0)
+			}.map { matches, user in
+				var response = try UserDetailsResponse(from: user)
+				for match in matches {
+					guard match.hostId == user.id || match.opponentId == user.id else { continue }
+					if match.status == .active {
+						response.activeMatches.append(try MatchDetailsResponse(from: match))
+					} else if match.status == .ended {
+						response.pastMatches.append(try MatchDetailsResponse(from: match))
 					}
+				}
+				return response
 			}
 	}
 
 	func create(_ request: Request) throws -> Future<CreateUserResponse> {
 		try request.content.decode(CreateUserRequest.self)
-			.flatMap { user -> Future<User> in
+			.flatMap {
 				User.query(on: request)
-					.filter(\.email == user.email)
+					.filter(\.email == $0.email)
 					.first()
-					.flatMap { existingUser in
-						guard existingUser == nil else {
-							throw Abort(.badRequest, reason: "User with email already exists.")
-						}
+					.and(result: $0)
+			}.flatMap { existingUser, user -> Future<User> in
+				guard existingUser == nil else {
+					throw Abort(.badRequest, reason: "User with email already exists.")
+				}
 
-						guard user.password == user.verifyPassword else {
-							throw Abort(.badRequest, reason: "Password and verification must match.")
-						}
+				guard user.password == user.verifyPassword else {
+					throw Abort(.badRequest, reason: "Password and verification must match.")
+				}
 
-						let hash = try BCrypt.hash(user.password)
-						return User(email: user.email, password: hash, displayName: user.displayName)
-							.save(on: request)
-					}
+				let hash = try BCrypt.hash(user.password)
+				return User(email: user.email, password: hash, displayName: user.displayName)
+					.save(on: request)
 			}.map {
 				let token = try UserToken(forUser: $0.requireID())
 				return try CreateUserResponse(from: $0, withToken: UserTokenResponse(from: token))

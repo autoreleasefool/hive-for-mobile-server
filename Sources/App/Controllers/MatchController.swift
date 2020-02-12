@@ -12,22 +12,21 @@ final class MatchController {
 
 	func details(_ request: Request) throws -> Future<MatchDetailsResponse> {
 		try request.parameters.next(Match.self)
-			.flatMap { match in
-				var response = try MatchDetailsResponse(from: match)
-				return User.query(on: request)
-					.filter(\.id ~~ [match.hostId, match.opponentId])
+			.flatMap {
+				User.query(on: request)
+					.filter(\.id ~~ [$0.hostId, $0.opponentId])
 					.all()
-					.map {
-						try $0.forEach {
-							if $0.id == match.hostId {
-								response.host = try UserSummaryResponse(from: $0)
-							} else if $0.id == match.opponentId {
-								response.opponent = try UserSummaryResponse(from: $0)
-							}
-						}
-
-						return response
+					.and(result: $0)
+			}.map { users, match in
+				var response = try MatchDetailsResponse(from: match)
+				for user in users {
+					if user.id == match.hostId {
+						response.host = try UserSummaryResponse(from: user)
+					} else if user.id == match.opponentId {
+						response.opponent = try UserSummaryResponse(from: user)
 					}
+				}
+				return response
 			}
 	}
 

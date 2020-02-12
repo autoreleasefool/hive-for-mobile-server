@@ -57,9 +57,12 @@ final class UserController {
 				let hash = try BCrypt.hash(user.password)
 				return User(email: user.email, password: hash, displayName: user.displayName)
 					.save(on: request)
-			}.map {
-				let token = try UserToken(forUser: $0.requireID())
-				return try CreateUserResponse(from: $0, withToken: UserTokenResponse(from: token))
+			}.flatMap {
+				try UserToken(forUser: $0.requireID())
+					.save(on: request)
+					.and(result: $0)
+			}.map { token, user in
+				return try CreateUserResponse(from: user, withToken: UserTokenResponse(from: token))
 			}
 	}
 

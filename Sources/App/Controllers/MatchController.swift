@@ -31,21 +31,27 @@ final class MatchController {
 	}
 
 	func openMatches(_ request: Request) throws -> Future<[MatchDetailsResponse]> {
-		Match.query(on: request)
+		#warning("TODO: this query needs to be cleaned up and moved to SQL")
+		return Match.query(on: request)
 			.filter(\.status == .open)
-			.join(\User.id, to: \Match.hostId)
-			.alsoDecode(User.self)
-			.join(\User.id, to: \Match.opponentId, method: .left)
-			.alsoDecode(User.OptionalFields.self, User.name)
-			.sort(\Match.createdAt)
 			.all()
-			.map { try $0.map { (matchAndHost, opponent) in
-				let (match, host) = matchAndHost
-				var response = try MatchDetailsResponse(from: match)
-				response.host = try UserSummaryResponse(from: host)
-				response.opponent = try UserSummaryResponse(from: User(opponent))
-				return response
-			}}
+			.flatMap {
+				User.query(on: request)
+					.all()
+					.and(result: $0)
+			}.map { users, matches in
+				try matches.map { match in
+					var response = try MatchDetailsResponse(from: match)
+					for user in users {
+						if match.hostId == user.id {
+							response.host = try UserSummaryResponse(from: user)
+						} else if match.opponentId == user.id {
+							response.opponent = try UserSummaryResponse(from: user)
+						}
+					}
+					return response
+				}
+			}
 	}
 
 	func spectatableMatches(_ request: Request) throws -> Future<[MatchDetailsResponse]> {

@@ -10,8 +10,13 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 
 	// Register routes to the router
 	let router = EngineRouter.default()
-	try routes(router)
+	try RESTRoutes(router)
 	services.register(router, as: Router.self)
+
+	// Register WebSocket routes to the router
+	let wss = WebSocketContainer.createWebSocket()
+	webSocketRoutes(wss)
+	services.register(wss, as: WebSocketServer.self)
 
 	// Register middleware
 	var middlewares = MiddlewareConfig() // Create _empty_ middleware config
@@ -30,7 +35,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 	// Configure migrations
 	var migrations = MigrationConfig()
 
-	#warning("Workarounds for Xcode 11.4 Beta")
+	#warning("FIXME: remove workarounds for Xcode 11.4 Beta")
 	// Preferred: migrations.add(model: User.self, database: .sqlite)
 
 	User.defaultDatabase = .sqlite
@@ -44,9 +49,6 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 
 	UserToken.defaultDatabase = .sqlite
 	migrations.add(model: UserToken.self, database: UserToken.defaultDatabase!)
-
-//	MatchUser.defaultDatabase = .sqlite
-//	migrations.add(model: MatchUser.self, database: MatchUser.defaultDatabase!)
 
 	services.register(migrations)
 }

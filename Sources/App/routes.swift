@@ -1,6 +1,6 @@
 import Vapor
 
-public func routes(_ router: Router) throws {
+func RESTRoutes(_ router: Router) throws {
 	router.get { req in
 		"It works!"
 	}
@@ -8,4 +8,8 @@ public func routes(_ router: Router) throws {
 	let apiRouter = router.grouped("api")
 	try apiRouter.register(collection: UserController())
 	try apiRouter.register(collection: MatchController())
+}
+
+func webSocketRoutes(_ wss: NIOWebSocketServer) {
+	MatchPlayManager.shared.registerRoutes(to: wss)
 }

@@ -3,8 +3,6 @@ import FluentSQLite
 import HiveEngine
 
 enum MatchStatus: Int, SQLiteEnumType {
-	/// A match that is waiting for an opponent to join
-	case open = 0
 	/// A match that has an opponent but has not started
 	case notStarted = 1
 	/// A match in progress
@@ -13,7 +11,7 @@ enum MatchStatus: Int, SQLiteEnumType {
 	case ended = 3
 
 	static func reflectDecoded() throws -> (MatchStatus, MatchStatus) {
-		return (.open, .notStarted)
+		return (.active, .notStarted)
 	}
 }
 
@@ -26,7 +24,7 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	private(set) var opponentId: User.ID?
 
 	/// ELO of the host at the start of the game
-	private(set) var hostElo: Double
+	private(set) var hostElo: Double?
 	/// ELO of the opponent at the start of the game
 	private(set) var opponentElo: Double?
 
@@ -56,7 +54,6 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 
 	init(withHost host: User) throws {
 		self.hostId = try host.requireID()
-		self.hostElo = host.elo
 		self.hostIsWhite = true
 		self.moves = []
 		self.status = .notStarted
@@ -66,13 +63,65 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 		self.options = GameState.Option.encode(newState.options)
 	}
 
+	func generateSocketUrl() throws -> URL {
+		try Constants.SOCKET_URL
+			.appendingPathComponent("\(requireID())")
+			.appendingPathComponent("play")
+	}
+}
+
+// MARK: - Modifiers
+
+extension Match {
 	func addOpponent(_ opponent: User.ID, on conn: DatabaseConnectable) -> Future<Match> {
 		self.opponentId = opponent
+		return self.save(on: conn)
+	}
+
+	func begin(on conn: DatabaseConnectable) throws -> Future<Match> {
+		let matchId = try requireID()
+
+		guard status == .notStarted,
+			opponentId != nil else {
+			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to begin (\#(status))"#)
+		}
+
+		#warning("TODO: get host and opponent's ELO")
+
+		status = .active
+		return self.save(on: conn)
+	}
+
+	func end(on conn: DatabaseConnectable) throws -> Future<Match> {
+		let matchId = try requireID()
+
+		guard status == .active else {
+			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to end (\#(status)"#)
+		}
+
+		status = .ended
+		if #available(OSX 10.15, *) {
+			duration = createdAt?.distance(to: Date())
+		}
 		return self.save(on: conn)
 	}
 }
 
 // MARK: - Response
+
+struct CreateMatchResponse: Content {
+	let id: Match.ID
+	let socketUrl: URL
+	let details: MatchDetailsResponse
+
+	init(from match: Match) throws {
+		self.id = try match.requireID()
+		self.socketUrl = try match.generateSocketUrl()
+		self.details = try MatchDetailsResponse(from: match)
+	}
+}
+
+typealias JoinMatchResponse = CreateMatchResponse
 
 struct MatchDetailsResponse: Content {
 	let id: Match.ID

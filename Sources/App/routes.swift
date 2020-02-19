@@ -1,7 +1,7 @@
 import Vapor
 
 func RESTRoutes(_ router: Router) throws {
-	router.get { req in
+	router.get { _ in
 		"It works!"
 	}
 

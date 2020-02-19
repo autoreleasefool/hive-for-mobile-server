@@ -1,0 +1,15 @@
+disabled_rules:
+  - identifier_name
+  - line_length
+  - file_length
+  - type_body_length
+  - nesting
+
+trailing_comma:
+  mandatory_comma: true
+
+excluded:
+  - .build
+
+type_name:
+  excluded: ID

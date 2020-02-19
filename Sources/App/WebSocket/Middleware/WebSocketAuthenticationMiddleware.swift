@@ -6,7 +6,7 @@ struct WebSocketAuthenticationMiddleware {
 		let middleware = User.tokenAuthMiddleware()
 
 		do {
-			let _ = try middleware.respond(to: request, chainingTo: authenticationRequiredResponder)
+			_ = try middleware.respond(to: request, chainingTo: authenticationRequiredResponder)
 		} catch {
 			webSocket.close()
 		}
@@ -14,7 +14,7 @@ struct WebSocketAuthenticationMiddleware {
 }
 
 struct WebSocketAuthenticationResponder: Responder {
-	typealias Handler = (WebSocket, Request, User) throws -> ()
+	typealias Handler = (WebSocket, Request, User) throws -> Void
 
 	let webSocket: WebSocket
 	let handler: Handler

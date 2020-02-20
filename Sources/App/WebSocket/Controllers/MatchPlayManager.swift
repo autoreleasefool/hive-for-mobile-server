@@ -8,7 +8,7 @@ class MatchPlayManager {
 
 	private var matchCache: [Match.ID: Match] = [:]
 
-	func onReceive(_ ws: WebSocket, _ request: Request, _ user: User) throws {
+	func onInitialize(_ ws: WebSocket, _ request: Request, _ user: User) throws {
 		guard let rawMatchId = request.parameters.rawValues(for: Match.self).first,
 			let matchId = UUID(rawMatchId) else {
 			throw Abort(.badRequest, reason: "Match ID could not be determined")
@@ -17,6 +17,8 @@ class MatchPlayManager {
 		guard let match = matchCache[matchId] else {
 			throw Abort(.badRequest, reason: #"Match with ID "\#(matchId)" could not be found"#)
 		}
+
+		
 
 		#warning("TODO: handle ws text")
 	}
@@ -66,7 +68,7 @@ extension MatchPlayManager {
 				WebSocketAuthenticationMiddleware.handle(
 					webSocket: ws,
 					request: req,
-					handler: self.onReceive
+					handler: self.onInitialize
 				)
 			}
 		)

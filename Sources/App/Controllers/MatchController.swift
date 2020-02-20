@@ -8,7 +8,7 @@ final class MatchController {
 		let user = try request.requireAuthenticated(User.self)
 		let match = try Match(withHost: user)
 		return match.save(on: request)
-			.thenThrowing { try MatchPlayManager.shared.begin(match: $0, on: request) }
+			.flatMap { try MatchPlayManager.shared.begin(match: $0, on: request) }
 			.map { try CreateMatchResponse(from: $0) }
 	}
 

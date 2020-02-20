@@ -125,7 +125,7 @@ typealias JoinMatchResponse = CreateMatchResponse
 
 struct MatchDetailsResponse: Content {
 	let id: Match.ID
-	let hostElo: Double
+	let hostElo: Double?
 	let opponentElo: Double?
 	let hostIsWhite: Bool
 	let winner: String?

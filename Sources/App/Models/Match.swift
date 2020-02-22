@@ -65,6 +65,16 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 			.appendingPathComponent("\(requireID())")
 			.appendingPathComponent("play")
 	}
+
+	func otherPlayer(from userId: User.ID) -> User.ID? {
+		if hostId == userId {
+			return opponentId
+		} else if opponentId == userId {
+			return hostId
+		}
+
+		return nil
+	}
 }
 
 // MARK: - Modifiers

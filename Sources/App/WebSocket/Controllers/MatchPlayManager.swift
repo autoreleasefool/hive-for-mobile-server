@@ -30,7 +30,19 @@ class MatchPlayManager {
 				return
 			}
 
-			self.handle(text: text, on: ws, from: userId, in: match)
+			guard let opponentId = match.otherPlayer(from: userId),
+				let opponentWS = self.connections[opponentId] else {
+				self.handle(error: Abort(.badRequest, reason: #"Could not find opponent in match \#(matchId)"#), on: ws)
+				return
+			}
+
+			self.handle(
+				text: text,
+				ws: ws,
+				opponentWS: opponentWS,
+				userId: userId,
+				match: match
+			)
 		}
 
 		// Remove the connection when the WebSocket closes
@@ -43,8 +55,8 @@ class MatchPlayManager {
 
 	}
 
-	private func handle(text: String, on ws: WebSocket, from userId: User.ID, in match: Match) {
-
+	private func handle(text: String, ws: WebSocket, opponentWS: WebSocket, userId: User.ID, match: Match) {
+		
 	}
 }
 

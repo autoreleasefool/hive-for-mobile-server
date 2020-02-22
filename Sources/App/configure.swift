@@ -44,6 +44,9 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 	Match.defaultDatabase = .sqlite
 	migrations.add(model: Match.self, database: Match.defaultDatabase!)
 
+	MatchMovement.defaultDatabase = .sqlite
+	migrations.add(model: MatchMovement.self, database: MatchMovement.defaultDatabase!)
+
 	PushToken.defaultDatabase = .sqlite
 	migrations.add(model: PushToken.self, database: PushToken.defaultDatabase!)
 

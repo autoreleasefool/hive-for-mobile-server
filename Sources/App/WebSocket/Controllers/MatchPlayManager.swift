@@ -44,7 +44,7 @@ class MatchPlayManager {
 	}
 
 	private func handle(text: String, on ws: WebSocket, from userId: User.ID, in match: Match) {
-		
+
 	}
 }
 

@@ -13,14 +13,25 @@ final class MatchController {
 	}
 
 	func details(_ request: Request) throws -> Future<MatchDetailsResponse> {
-		try request.parameters.next(Match.self)
+		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
+		return try request.parameters.next(Match.self)
 			.flatMap {
-				User.query(on: request)
-					.filter(\.id ~~ [$0.hostId, $0.opponentId])
+				try $0.moves
+					.query(on: request)
+					.sort(\.ordinal)
 					.all()
 					.and(result: $0)
-			}.map { users, match in
+			}
+			.flatMap { moves, match in
+				User.query(on: request)
+					.filter(\.id ~~ [match.hostId, match.opponentId])
+					.all()
+					.and(result: moves)
+					.and(result: match)
+			}.map { usersAndMoves, match in
+				let (users, moves) = usersAndMoves
 				var response = try MatchDetailsResponse(from: match)
+				response.moves = try moves.map { try MatchMovementResponse(from: $0) }
 				for user in users {
 					if user.id == match.hostId {
 						response.host = try UserSummaryResponse(from: user)
@@ -33,7 +44,7 @@ final class MatchController {
 	}
 
 	func openMatches(_ request: Request) throws -> Future<[MatchDetailsResponse]> {
-		#warning("TODO: this query needs to be cleaned up and moved to SQL")
+		#warning("TODO: users shouldn't be queried separately -- try to hit DB once")
 		return Match.query(on: request)
 			.filter(\.status == .notStarted)
 			.filter(\.opponentId == .none)

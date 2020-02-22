@@ -35,8 +35,6 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 
 	/// Options that were used in the game
 	private(set) var options: String
-	/// History of moves played in the game
-	private(set) var moves: [String]
 
 	/// Date that the game was started at
 	private(set) var createdAt: Date?
@@ -55,7 +53,6 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	init(withHost host: User) throws {
 		self.hostId = try host.requireID()
 		self.hostIsWhite = true
-		self.moves = []
 		self.status = .notStarted
 		self.isAsyncPlay = false
 
@@ -130,7 +127,6 @@ struct MatchDetailsResponse: Content {
 	let hostIsWhite: Bool
 	let winner: String?
 	let options: String
-	let moves: [String]
 	let createdAt: Date?
 	let duration: TimeInterval?
 	let status: MatchStatus
@@ -138,6 +134,7 @@ struct MatchDetailsResponse: Content {
 
 	var host: UserSummaryResponse?
 	var opponent: UserSummaryResponse?
+	var moves: [MatchMovementResponse] = []
 
 	init(from match: Match) throws {
 		self.id = try match.requireID()
@@ -146,7 +143,6 @@ struct MatchDetailsResponse: Content {
 		self.hostIsWhite = match.hostIsWhite
 		self.winner = match.winner
 		self.options = match.options
-		self.moves = match.moves
 		self.createdAt = match.createdAt
 		self.duration = match.duration
 		self.status = match.status

@@ -1,15 +1,14 @@
 import Vapor
 import HiveEngine
 
-struct WSClientMessageContext {
-	let user: User.ID
-	let opponent: User.ID?
-	let matchId: Match.ID
-	let match: Match
-	let state: GameState
+protocol WSClientMessageContext: class {
+	var user: User.ID { get }
+	var opponent: User.ID? { get }
+	var matchId: Match.ID { get }
+	var match: Match { get }
 
-	let userWS: WebSocket
-	let opponentWS: WebSocket?
+	var userWS: WebSocket { get }
+	var opponentWS: WebSocket? { get }
 }
 
 protocol WSClientMessageHandler {

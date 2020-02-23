@@ -45,7 +45,7 @@ class MatchPlayManager {
 				opponentWS = nil
 			}
 
-			let context = WSClientMessageContext(user: userId, opponent: opponentId, matchId: matchId, match: match, state: state, userWS: ws, opponentWS: opponentWS)
+			let context = WSClientMatchContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: ws, opponentWS: opponentWS, state: state)
 			self.handle(text: text, context: context)
 		}
 
@@ -59,43 +59,33 @@ class MatchPlayManager {
 
 	}
 
-	private func handle(text: String, context: WSClientMessageContext) {
+	private func handle(text: String, context: WSClientMatchContext) {
 		let handler = clientMessageHandler(from: text)
 		handler?.handle(context)
 	}
 }
 
-// MARK: - REST
+// MARK: - Message Context
 
-extension MatchPlayManager {
-	func begin(match: Match, on conn: DatabaseConnectable) throws -> Future<Match> {
-		let matchId = try match.requireID()
-		guard matchCache[matchId] == nil else {
-			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" already in progress"#)
-		}
+class WSClientMatchContext: WSClientMessageContext {
+	let user: User.ID
+	let opponent: User.ID?
+	let matchId: Match.ID
+	let match: Match
 
-		return try match.begin(on: conn)
-			.map { [unowned self] match in
-				self.matchCache[matchId] = match
-				return match
-			}
-	}
+	let userWS: WebSocket
+	let opponentWS: WebSocket?
 
-	func add(opponent: User.ID, to matchId: Match.ID, on conn: DatabaseConnectable) throws -> Future<JoinMatchResponse> {
-		guard let match = matchCache[matchId] else {
-			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
-		}
+	let state: GameState
 
-		guard match.opponentId == nil else {
-			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
-		}
-
-		guard match.hostId != opponent else {
-			throw Abort(.badRequest, reason: "Cannot join a match you are hosting")
-		}
-
-		return match.addOpponent(opponent, on: conn)
-			.map { try JoinMatchResponse(from: $0) }
+	init(user: User.ID, opponent: User.ID?, matchId: Match.ID, match: Match, userWS: WebSocket, opponentWS: WebSocket?, state: GameState) {
+		self.user = user
+		self.opponent = opponent
+		self.matchId = matchId
+		self.match = match
+		self.userWS = userWS
+		self.opponentWS = opponentWS
+		self.state = state
 	}
 }
 

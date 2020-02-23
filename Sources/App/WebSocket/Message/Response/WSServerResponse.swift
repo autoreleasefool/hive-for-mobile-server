@@ -3,6 +3,7 @@ import HiveEngine
 
 enum WSServerResponse {
 	case state(GameState)
+	case setOption(GameState.Option, Bool)
 //	case startGame
 //	case forfeit
 //	case message(String)
@@ -14,6 +15,8 @@ extension WebSocket {
 		switch response {
 		case .state(let state):
 			self.send("STATE \(state.gameString)")
+		case .setOption(let option, let value):
+			self.send("SET \(option) \(value)")
 //		case .startGame:
 //			self.send("GLHF")
 //		case .forfeit:

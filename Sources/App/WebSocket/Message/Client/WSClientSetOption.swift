@@ -19,20 +19,27 @@ struct WSClientSetOption: WSClientMessageHandler {
 	}
 
 	func handle(_ context: WSClientMessageContext) {
-		let success = context.state.set(option: option, to: newValue)
-		if success {
-			context.userWS.send(response: .state(context.state))
-			context.opponentWS?.send(response: .state(context.state))
+		if let lobbyContext = context as? WSClientLobbyContext {
+			if newValue {
+				lobbyContext.options.insert(option)
+			} else {
+				lobbyContext.options.remove(option)
+			}
+
+			context.userWS.send(response: .setOption(option, newValue))
+			context.opponentWS?.send(response: .setOption(option, newValue))
 		} else {
 			self.handleFailure(context: context)
 		}
 	}
 
 	private func handleFailure(context: WSClientMessageContext) {
-		if context.state.move > 0 || option.isExpansion {
-			context.userWS.send(error: .optionNonModifiable)
-		} else {
+		if context is WSClientLobbyContext {
+			// Should be able to set option in lobby, so an error must have occurred
 			context.userWS.send(error: .optionValueNotUpdated(option, String(newValue)))
+		} else {
+			// Cannot change options at any other time, so client is issuing bad commands
+			context.userWS.send(error: .optionNonModifiable)
 		}
 	}
 }

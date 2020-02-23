@@ -75,6 +75,10 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 
 		return nil
 	}
+
+	var gameOptions: Set<GameState.Option> {
+		GameState.Option.parse(self.options)
+	}
 }
 
 // MARK: - Modifiers

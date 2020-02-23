@@ -37,10 +37,12 @@ class MatchPlayManager {
 				return
 			}
 
-			guard let opponentId = match.otherPlayer(from: userId),
-				let opponentWS = self.connections[opponentId] else {
-				self.handle(error: Abort(.badRequest, reason: #"Could not find opponent in match "\#(matchId)""#), on: ws)
-				return
+			let opponentId = match.otherPlayer(from: userId)
+			let opponentWS: WebSocket
+			if let opponentId = opponentId {
+				opponentWS = self.connections[opponentId]
+			} else {
+				opponentWS = nil
 			}
 
 			let context = WSClientMessageContext(user: userId, opponent: opponentId, matchId: matchId, match: match, state: state, userWS: ws, opponentWS: opponentWS)

@@ -11,5 +11,16 @@ func RESTRoutes(_ router: Router) throws {
 }
 
 func webSocketRoutes(_ wss: NIOWebSocketServer) {
-	MatchPlayManager.shared.registerRoutes(to: wss)
+	let responder = WebSocketResponder(
+		shouldUpgrade: { _ in return [:] },
+		onUpgrade: { ws, req in
+			WebSocketAuthenticationMiddleware.handle(
+				webSocket: ws,
+				request: req,
+				handler: LobbyController.shared.onJoinLobbyMatch
+			)
+		}
+	)
+	let route: Route<WebSocketResponder> = .init(path: [Match.parameter, "play"], output: responder)
+	wss.register(route: route)
 }

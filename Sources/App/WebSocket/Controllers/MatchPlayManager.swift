@@ -89,21 +89,8 @@ class WSClientMatchContext: WSClientMessageContext {
 	}
 }
 
-// MARK: - Routes
-
 extension MatchPlayManager {
-	func registerRoutes(to wss: NIOWebSocketServer) {
-		let responder = WebSocketResponder(
-			shouldUpgrade: { _ in return [:] },
-			onUpgrade: { [unowned self] ws, req in
-				WebSocketAuthenticationMiddleware.handle(
-					webSocket: ws,
-					request: req,
-					handler: self.onInitialize
-				)
-			}
-		)
-		let route: Route<WebSocketResponder> = .init(path: [Match.parameter, "play"], output: responder)
-		wss.register(route: route)
+	func beginMatch(context: WSClientMessageContext) {
+		
 	}
 }

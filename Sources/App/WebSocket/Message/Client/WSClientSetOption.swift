@@ -20,11 +20,7 @@ struct WSClientSetOption: WSClientMessageHandler {
 
 	func handle(_ context: WSClientMessageContext) {
 		if let lobbyContext = context as? WSClientLobbyContext {
-			if newValue {
-				lobbyContext.options.insert(option)
-			} else {
-				lobbyContext.options.remove(option)
-			}
+			lobbyContext.options.set(option, to: newValue)
 
 			context.userWS.send(response: .setOption(option, newValue))
 			context.opponentWS?.send(response: .setOption(option, newValue))

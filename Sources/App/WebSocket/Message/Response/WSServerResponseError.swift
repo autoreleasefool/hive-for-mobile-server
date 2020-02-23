@@ -6,6 +6,7 @@ enum WSServerResponseError: LocalizedError {
 	case invalidMovement(String)
 	case notPlayerTurn
 	case optionNonModifiable
+	case invalidCommand
 
 	// Server/state errors
 	case optionValueNotUpdated(GameState.Option, String)
@@ -14,7 +15,8 @@ enum WSServerResponseError: LocalizedError {
 		switch self {
 		case .invalidMovement:       return 101
 		case .notPlayerTurn:         return 102
-		case .optionNonModifiable:  return 103
+		case .optionNonModifiable:   return 103
+		case .invalidCommand:        return 199
 		case .optionValueNotUpdated: return 201
 		}
 	}
@@ -27,6 +29,8 @@ enum WSServerResponseError: LocalizedError {
 			return "Not player turn"
 		case .optionNonModifiable:
 			return "Options cannot be modified"
+		case .invalidCommand:
+			return "Invalid command"
 		case .optionValueNotUpdated(let option, let value):
 			return #"Could not set "\#(option)" to "\#(value)""#
 		}

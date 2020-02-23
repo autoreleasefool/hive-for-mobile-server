@@ -18,6 +18,8 @@ protocol WSClientMessageHandler {
 func clientMessageHandler(from text: String) -> WSClientMessageHandler? {
 	if WSClientSetOption.canParse(text: text) {
 		return WSClientSetOption(from: text)
+	} else if WSClientStartGame.canParse(text: text) {
+		return WSClientStartGame()
 	}
 
 	return nil

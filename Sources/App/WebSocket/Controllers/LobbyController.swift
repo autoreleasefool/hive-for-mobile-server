@@ -123,4 +123,32 @@ extension LobbyController {
 		return match.addOpponent(opponent, on: conn)
 			.map { try JoinMatchResponse(from: $0) }
 	}
+
+	func readyPlayer(_ context: WSClientLobbyContext) {
+		if context.opponent != nil {
+			readyUsers.set(context.user, to: !readyUsers.contains(context.user))
+		}
+
+		let response = WSServerResponse.setPlayerReady(context.user, readyUsers.contains(context.user))
+		context.userWS.send(response: response)
+		context.opponentWS?.send(response: response)
+
+		if let opponent = context.opponent,
+			readyUsers.contains(context.user) && readyUsers.contains(opponent) {
+			removeFromLobby(context: context)
+			MatchPlayManager.shared.beginMatch(context: context)
+		}
+	}
+
+	private func removeFromLobby(context: WSClientMessageContext) {
+		lobbyMatches[context.matchId] = nil
+		matchOptions[context.matchId] = nil
+		connections[context.user] = nil
+		readyUsers.remove(context.user)
+		if let opponent = context.opponent {
+			connections[opponent] = nil
+			readyUsers.remove(opponent)
+		}
+
+	}
 }

@@ -19,7 +19,13 @@ struct WSClientSetOption: WSClientMessageHandler {
 	}
 
 	func handle(_ context: WSClientMessageContext) {
-		_ = context.state.set(option: option, to: newValue)
+		let success = context.state.set(option: option, to: newValue)
+		if success {
+			context.userWS.send(response: .state(context.state))
+			context.opponentWS?.send(response: .state(context.state))
+		} else {
+			#warning("TODO: send error to client")
+		}
 	}
 }
 

@@ -24,7 +24,15 @@ struct WSClientSetOption: WSClientMessageHandler {
 			context.userWS.send(response: .state(context.state))
 			context.opponentWS?.send(response: .state(context.state))
 		} else {
-			#warning("TODO: send error to client")
+			self.handleFailure(context: context)
+		}
+	}
+
+	private func handleFailure(context: WSClientMessageContext) {
+		if context.state.move > 0 || option.isExpansion {
+			context.userWS.send(error: .optionNonModifiable)
+		} else {
+			context.userWS.send(error: .optionValueNotUpdated(option, String(newValue)))
 		}
 	}
 }

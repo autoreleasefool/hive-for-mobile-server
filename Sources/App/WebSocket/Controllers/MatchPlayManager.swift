@@ -38,7 +38,7 @@ class MatchPlayManager {
 			}
 
 			let opponentId = match.otherPlayer(from: userId)
-			let opponentWS: WebSocket
+			let opponentWS: WebSocket?
 			if let opponentId = opponentId {
 				opponentWS = self.connections[opponentId]
 			} else {

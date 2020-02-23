@@ -1,4 +1,5 @@
 import Vapor
+import HiveEngine
 
 class MatchPlayManager {
 
@@ -7,6 +8,7 @@ class MatchPlayManager {
 	private init() { }
 
 	private var matchCache: [Match.ID: Match] = [:]
+	private var matchGameState: [Match.ID: GameState] = [:]
 	private var connections: [User.ID: WebSocket] = [:]
 
 	func onInitialize(_ ws: WebSocket, _ request: Request, _ user: User) throws {
@@ -30,19 +32,19 @@ class MatchPlayManager {
 				return
 			}
 
-			guard let opponentId = match.otherPlayer(from: userId),
-				let opponentWS = self.connections[opponentId] else {
-				self.handle(error: Abort(.badRequest, reason: #"Could not find opponent in match \#(matchId)"#), on: ws)
+			guard let state = self.matchGameState[matchId] else {
+				self.handle(error: Abort(.badRequest, reason: #"Could not find GameState in match "\#(matchId)""#), on: ws)
 				return
 			}
 
-			self.handle(
-				text: text,
-				ws: ws,
-				opponentWS: opponentWS,
-				userId: userId,
-				match: match
-			)
+			guard let opponentId = match.otherPlayer(from: userId),
+				let opponentWS = self.connections[opponentId] else {
+				self.handle(error: Abort(.badRequest, reason: #"Could not find opponent in match "\#(matchId)""#), on: ws)
+				return
+			}
+
+			let context = WSClientMessageContext(user: userId, opponent: opponentId, matchId: matchId, match: match, state: state, userWS: ws, opponentWS: opponentWS)
+			self.handle(text: text, context: context)
 		}
 
 		// Remove the connection when the WebSocket closes
@@ -55,8 +57,9 @@ class MatchPlayManager {
 
 	}
 
-	private func handle(text: String, ws: WebSocket, opponentWS: WebSocket, userId: User.ID, match: Match) {
-		
+	private func handle(text: String, context: WSClientMessageContext) {
+		let handler = clientMessageHandler(from: text)
+		handler?.handle(context)
 	}
 }
 

@@ -18,7 +18,7 @@ struct WSClientSetOption: WSClientMessageHandler {
 		self.newValue = value
 	}
 
-	func handle(_ context: WSClientMessageContext) {
+	func handle(_ context: WSClientMessageContext) throws {
 		if let lobbyContext = context as? WSClientLobbyContext {
 			lobbyContext.options.set(option, to: newValue)
 

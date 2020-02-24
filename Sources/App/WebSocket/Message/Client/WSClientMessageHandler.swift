@@ -12,7 +12,7 @@ protocol WSClientMessageContext: class {
 }
 
 protocol WSClientMessageHandler {
-	func handle(_ context: WSClientMessageContext)
+	func handle(_ context: WSClientMessageContext) throws
 }
 
 func clientMessageHandler(from text: String) -> WSClientMessageHandler? {
@@ -20,6 +20,8 @@ func clientMessageHandler(from text: String) -> WSClientMessageHandler? {
 		return WSClientSetOption(from: text)
 	} else if WSClientStartGame.canParse(text: text) {
 		return WSClientStartGame()
+	} else if WSClientSendMessage.canParse(text: text) {
+		return WSClientSendMessage(from: text)
 	}
 
 	return nil

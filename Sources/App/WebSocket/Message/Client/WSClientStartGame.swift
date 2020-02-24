@@ -1,11 +1,10 @@
-import Regex
 import HiveEngine
 
 struct WSClientStartGame: WSClientMessageHandler {
-	func handle(_ context: WSClientMessageContext) {
+	func handle(_ context: WSClientMessageContext) throws {
 		if let lobbyContext = context as? WSClientLobbyContext {
 			// Mark the player as ready in the lobby
-			LobbyController.shared.readyPlayer(lobbyContext)
+			try LobbyController.shared.readyPlayer(lobbyContext)
 		} else {
 			// Report an invalid command when the match is not in the lobby
 			context.userWS.send(error: .invalidCommand)

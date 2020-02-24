@@ -1,47 +1,32 @@
-import Regex
 import HiveEngine
 
-struct WSClientSetOption: WSClientMessageHandler {
-	private static let regex = Regex("^SET ([a-zA-Z0-9]+) (false|true)$")
-
-	let option: GameState.Option
-	let newValue: Bool
-
-	init?(from: String) {
-		guard let match = WSClientSetOption.regex.firstMatch(in: from),
-			let option = GameState.Option(rawValue: match.captures[1] ?? ""),
-			let value = Bool(match.captures[2] ?? "") else {
-			return nil
+extension WSClientMessage {
+	static func extractOption(from string: String) throws -> GameState.Option {
+		guard let optionStart = string.firstIndex(of: " "),
+			let optionEnd = string.lastIndex(of: " "),
+			let option = GameState.Option(rawValue: String(string[optionStart...optionEnd]).trimmingCharacters(in: .whitespaces)) else {
+			throw WSServerResponseError.invalidCommand
 		}
 
-		self.option = option
-		self.newValue = value
+		return option
 	}
 
-	func handle(_ context: WSClientMessageContext) throws {
-		if let lobbyContext = context as? WSClientLobbyContext {
-			lobbyContext.options.set(option, to: newValue)
-
-			context.userWS.send(response: .setOption(option, newValue))
-			context.opponentWS?.send(response: .setOption(option, newValue))
-		} else {
-			self.handleFailure(context: context)
+	static func extractOptionValue(from string: String) throws -> Bool {
+		guard let valueStart = string.lastIndex(of: " "),
+			let value = Bool(String(string[valueStart...]).trimmingCharacters(in: .whitespaces)) else {
+				throw WSServerResponseError.invalidCommand
 		}
+
+		return value
 	}
 
-	private func handleFailure(context: WSClientMessageContext) {
-		if context is WSClientLobbyContext {
-			// Should be able to set option in lobby, so an error must have occurred
-			context.userWS.send(error: .optionValueNotUpdated(option, String(newValue)))
-		} else {
-			// Cannot change options at any other time, so client is issuing bad commands
-			context.userWS.send(error: .optionNonModifiable)
+	static func handle(option: GameState.Option, value: Bool, with context: WSClientMessageContext) throws {
+		guard let lobbyContext = context as? WSClientLobbyContext else {
+			throw WSServerResponseError.optionNonModifiable
 		}
-	}
-}
 
-extension WSClientSetOption {
-	static func canParse(text: String) -> Bool {
-		WSClientSetOption.regex.matches(text)
+		lobbyContext.options.set(option, to: value)
+		lobbyContext.userWS.send(response: .setOption(option, value))
+		lobbyContext.opponentWS?.send(response: .setOption(option, value))
 	}
 }

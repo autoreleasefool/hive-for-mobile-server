@@ -1,7 +1,7 @@
 import Vapor
 import HiveEngine
 
-class MatchPlayController {
+class MatchPlayController: WebSocketController {
 
 	static let shared = MatchPlayController()
 
@@ -42,26 +42,6 @@ class MatchPlayController {
 		// Remove the connection when the WebSocket closes
 		ws.onClose.whenComplete { [unowned self] in
 			self.connections[userId] = nil
-		}
-	}
-
-	private func handle(error: Error, on ws: WebSocket, context: WSClientMessageContext?) {
-		if let serverError = error as? WSServerResponseError {
-			// Error can be gracefully handled
-		} else {
-
-		}
-	}
-
-	private func handle(text: String, context: WSClientMatchContext) {
-		guard let handler = clientMessageHandler(from: text) else {
-			return self.handle(error: WSServerResponseError.invalidCommand, on: context.userWS, context: nil)
-		}
-
-		do {
-			try handler.handle(context)
-		} catch {
-			self.handle(error: error, on: context.userWS, context: context)
 		}
 	}
 }

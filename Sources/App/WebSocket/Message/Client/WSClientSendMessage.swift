@@ -1,22 +1,14 @@
-struct WSClientSendMessage: WSClientMessageHandler {
-	let message: String
-
-	init?(from: String) {
-		guard let messageStart = from.firstIndex(of: " ") else {
-			return nil
+extension WSClientMessage {
+	static func extractMessage(from string: String) throws -> String {
+		guard let messageStart = string.firstIndex(of: " ") else {
+			throw WSServerResponseError.invalidCommand
 		}
 
-		self.message = String(from[messageStart...])
+		return String(string[messageStart...]).trimmingCharacters(in: .whitespaces)
 	}
 
-	func handle(_ context: WSClientMessageContext) throws {
+	static func handle(message: String, with context: WSClientMessageContext) throws {
 		context.userWS.send(response: .message(context.user, message))
 		context.opponentWS?.send(response: .message(context.user, message))
-	}
-}
-
-extension WSClientSendMessage {
-	static func canParse(text: String) -> Bool {
-		text.starts(with: "MSG ")
 	}
 }

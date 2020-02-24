@@ -11,20 +11,36 @@ protocol WSClientMessageContext: class {
 	var opponentWS: WebSocket? { get }
 }
 
-protocol WSClientMessageHandler {
-	func handle(_ context: WSClientMessageContext) throws
-}
+enum WSClientMessage {
+	case playMove(RelativeMovement)
+	case sendMessage(String)
+	case setOption(GameState.Option, Bool)
+	case playerReady
 
-func clientMessageHandler(from text: String) -> WSClientMessageHandler? {
-	if WSClientSetOption.canParse(text: text) {
-		return WSClientSetOption(from: text)
-	} else if WSClientStartGame.canParse(text: text) {
-		return WSClientStartGame()
-	} else if WSClientSendMessage.canParse(text: text) {
-		return WSClientSendMessage(from: text)
-	} else if WSClientPlayMove.canParse(text: text) {
-		return WSClientPlayMove(from: text)
+	init(from: String) throws {
+		if from.starts(with: "SET") {
+			self = try .setOption(WSClientMessage.extractOption(from: from), WSClientMessage.extractOptionValue(from: from))
+		} else if from.starts(with: "MSG") {
+			self = try .sendMessage(WSClientMessage.extractMessage(from: from))
+		} else if from.starts(with: "GLHF") {
+			self = .playerReady
+		} else if from.starts(with: "MOV") {
+			self = try .playMove(WSClientMessage.extractMovement(from: from))
+		}
+
+		throw WSServerResponseError.invalidCommand
 	}
 
-	return nil
+	func handle(_ context: WSClientMessageContext) throws {
+		switch self {
+		case .playMove(let movement):
+			try WSClientMessage.handle(movement: movement, with: context)
+		case .sendMessage(let message):
+			try WSClientMessage.handle(message: message, with: context)
+		case .setOption(let option, let value):
+			try WSClientMessage.handle(option: option, value: value, with: context)
+		case .playerReady:
+			try WSClientMessage.handle(playerReady: context.user, with: context)
+		}
+	}
 }

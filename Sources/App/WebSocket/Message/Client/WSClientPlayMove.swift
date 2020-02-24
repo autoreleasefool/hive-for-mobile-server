@@ -2,19 +2,17 @@ import Vapor
 import Regex
 import HiveEngine
 
-struct WSClientPlayMove: WSClientMessageHandler {
-	let movement: RelativeMovement
-
-	init?(from: String) {
-		guard let moveStart = from.firstIndex(of: " "),
-			let movement = RelativeMovement(notation: String(from[moveStart...])) else {
-			return nil
+extension WSClientMessage {
+	static func extractMovement(from string: String) throws -> RelativeMovement {
+		guard let moveStart = string.firstIndex(of: " "),
+			let movement = RelativeMovement(notation: String(string[moveStart...]).trimmingCharacters(in: .whitespaces)) else {
+			throw WSServerResponseError.invalidCommand
 		}
 
-		self.movement = movement
+		return movement
 	}
 
-	func handle(_ context: WSClientMessageContext) throws {
+	static func handle(movement: RelativeMovement, with context: WSClientMessageContext) throws {
 		guard let matchContext = context as? WSClientMatchContext else {
 			throw WSServerResponseError.invalidCommand
 		}
@@ -23,13 +21,7 @@ struct WSClientPlayMove: WSClientMessageHandler {
 			throw WSServerResponseError.invalidMovement(movement.notation)
 		}
 
-		context.userWS.send(response: .state(matchContext.state))
-		context.opponentWS?.send(response: .state(matchContext.state))
-	}
-}
-
-extension WSClientPlayMove {
-	static func canParse(text: String) -> Bool {
-		text.starts(with: "MOV ")
+		matchContext.userWS.send(response: .state(matchContext.state))
+		matchContext.opponentWS?.send(response: .state(matchContext.state))
 	}
 }

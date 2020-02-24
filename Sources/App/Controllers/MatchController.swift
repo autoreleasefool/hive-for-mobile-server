@@ -8,7 +8,7 @@ final class MatchController {
 		let user = try request.requireAuthenticated(User.self)
 		let match = try Match(withHost: user)
 		return match.save(on: request)
-			.flatMap { try MatchPlayManager.shared.begin(match: $0, on: request) }
+			.flatMap { try LobbyController.shared.open(match: $0, on: request) }
 			.map { try CreateMatchResponse(from: $0) }
 	}
 
@@ -81,7 +81,7 @@ final class MatchController {
 		let user = try request.requireAuthenticated(User.self)
 		return try request.parameters.next(Match.self)
 			.flatMap { match in
-				try MatchPlayManager.shared.add(
+				try LobbyController.shared.add(
 					opponent: user.requireID(),
 					to: match.requireID(),
 					on: request

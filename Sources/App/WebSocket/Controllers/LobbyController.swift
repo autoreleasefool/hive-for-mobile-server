@@ -62,7 +62,11 @@ class LobbyController {
 
 	private func handle(text: String, context: WSClientLobbyContext) {
 		let handler = clientMessageHandler(from: text)
-		handler?.handle(context)
+		do {
+			try handler?.handle(context)
+		} catch {
+			self.handle(error: error, on: context.userWS)
+		}
 	}
 }
 
@@ -78,6 +82,10 @@ class WSClientLobbyContext: WSClientMessageContext {
 	let opponentWS: WebSocket?
 
 	var options: Set<GameState.Option>
+
+	var gameState: GameState {
+		return GameState(options: options)
+	}
 
 	init(user: User.ID, opponent: User.ID?, matchId: Match.ID, match: Match, userWS: WebSocket, opponentWS: WebSocket?, options: Set<GameState.Option>) {
 		self.user = user
@@ -124,7 +132,7 @@ extension LobbyController {
 			.map { try JoinMatchResponse(from: $0) }
 	}
 
-	func readyPlayer(_ context: WSClientLobbyContext) {
+	func readyPlayer(_ context: WSClientLobbyContext) throws {
 		if context.opponent != nil {
 			readyUsers.set(context.user, to: !readyUsers.contains(context.user))
 		}
@@ -136,7 +144,7 @@ extension LobbyController {
 		if let opponent = context.opponent,
 			readyUsers.contains(context.user) && readyUsers.contains(opponent) {
 			removeFromLobby(context: context)
-			MatchPlayManager.shared.beginMatch(context: context)
+			try MatchPlayController.shared.beginMatch(context: context)
 		}
 	}
 

@@ -67,6 +67,19 @@ class WSClientMatchContext: WSClientMessageContext {
 		self.requiredOpponentWS = opponentWS
 		self.state = state
 	}
+
+	private var isUserHost: Bool {
+		user == match.hostId
+	}
+
+	private var isHostTurn: Bool {
+		(match.hostIsWhite && state.currentPlayer == .white) ||
+			(!match.hostIsWhite && state.currentPlayer == .black)
+	}
+
+	var isUserTurn: Bool {
+		return (isUserHost && isHostTurn) || (!isUserHost && !isHostTurn)
+	}
 }
 
 extension MatchPlayController {

@@ -17,11 +17,15 @@ extension WSClientMessage {
 			throw WSServerResponseError.invalidCommand
 		}
 
+		guard matchContext.isUserTurn else {
+			throw WSServerResponseError.notPlayerTurn
+		}
+
 		guard matchContext.state.apply(relativeMovement: movement) else {
 			throw WSServerResponseError.invalidMovement(movement.notation)
 		}
 
 		matchContext.userWS.send(response: .state(matchContext.state))
-		matchContext.opponentWS?.send(response: .state(matchContext.state))
+		matchContext.requiredOpponentWS.send(response: .state(matchContext.state))
 	}
 }

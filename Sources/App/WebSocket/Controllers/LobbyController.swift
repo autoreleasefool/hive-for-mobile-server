@@ -29,13 +29,19 @@ class LobbyController {
 
 		ws.onText { [unowned self] ws, text in
 			guard let match = self.lobbyMatches[matchId] else {
-				self.handle(error: Abort(.badRequest, reason: #"Match with ID "\#(matchId)" could not be found"#), on: ws)
-				return
+				return self.handle(
+					error: Abort(.badRequest, reason: #"Match with ID "\#(matchId)" could not be found"#),
+					on: ws,
+					context: nil
+				)
 			}
 
 			guard let options = self.matchOptions[matchId] else {
-				self.handle(error: Abort(.badRequest, reason: #"Could not find Set<GameState.Option> for match "\#(matchId)""#), on: ws)
-				return
+				return self.handle(
+					error: Abort(.badRequest, reason: #"Could not find Set<GameState.Option> for match "\#(matchId)""#),
+					on: ws,
+					context: nil
+				)
 			}
 
 			let opponentId = match.otherPlayer(from: userId)
@@ -56,8 +62,12 @@ class LobbyController {
 		}
 	}
 
-	private func handle(error: Error, on ws: WebSocket) {
+	private func handle(error: Error, on ws: WebSocket, context: WSClientMessageContext?) {
+		if let serverError = error as? WSServerResponseError {
 
+		} else {
+
+		}
 	}
 
 	private func handle(text: String, context: WSClientLobbyContext) {
@@ -65,7 +75,7 @@ class LobbyController {
 		do {
 			try handler?.handle(context)
 		} catch {
-			self.handle(error: error, on: context.userWS)
+			self.handle(error: error, on: context.userWS, context: context)
 		}
 	}
 }

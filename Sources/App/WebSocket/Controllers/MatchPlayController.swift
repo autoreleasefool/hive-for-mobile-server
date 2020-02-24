@@ -20,13 +20,19 @@ class MatchPlayController {
 		ws.onText { [unowned self] ws, text in
 			guard let opponentId = match.otherPlayer(from: userId),
 				let opponentWS = self.connections[opponentId] else {
-				self.handle(error: Abort(.internalServerError, reason: #"Opponent in match "\#(matchId)" could not be found"#), on: ws)
-				return
+				return self.handle(
+					error: Abort(.internalServerError, reason: #"Opponent in match "\#(matchId)" could not be found"#),
+					on: ws,
+					context: nil
+				)
 			}
 
 			guard let state = self.matchGameStates[matchId] else {
-				self.handle(error: Abort(.internalServerError, reason: #"GameState for match "\#(matchId)" could not be found"#), on: ws)
-				return
+				return self.handle(
+					error: Abort(.internalServerError, reason: #"GameState for match "\#(matchId)" could not be found"#),
+					on: ws,
+					context: nil
+				)
 			}
 
 			let context = WSClientMatchContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: ws, opponentWS: opponentWS, state: state)
@@ -39,7 +45,12 @@ class MatchPlayController {
 		}
 	}
 
-	private func handle(error: Error, on ws: WebSocket) {
+	private func handle(error: Error, on ws: WebSocket, context: WSClientMessageContext?) {
+		if let serverError = error as? WSServerResponseError {
+
+		} else {
+
+		}
 	}
 
 	private func handle(text: String, context: WSClientMatchContext) {
@@ -47,7 +58,7 @@ class MatchPlayController {
 		do {
 			try handler?.handle(context)
 		} catch {
-			self.handle(error: error, on: context.userWS)
+			self.handle(error: error, on: context.userWS, context: context)
 		}
 	}
 }

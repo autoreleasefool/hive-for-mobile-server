@@ -1,6 +1,3 @@
-import Regex
-import HiveEngine
-
 struct WSClientSendMessage: WSClientMessageHandler {
 	let message: String
 

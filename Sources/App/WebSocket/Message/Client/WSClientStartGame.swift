@@ -1,5 +1,3 @@
-import HiveEngine
-
 struct WSClientStartGame: WSClientMessageHandler {
 	func handle(_ context: WSClientMessageContext) throws {
 		if let lobbyContext = context as? WSClientLobbyContext {

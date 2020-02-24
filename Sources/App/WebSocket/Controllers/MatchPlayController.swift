@@ -54,9 +54,12 @@ class MatchPlayController {
 	}
 
 	private func handle(text: String, context: WSClientMatchContext) {
-		let handler = clientMessageHandler(from: text)
+		guard let handler = clientMessageHandler(from: text) else {
+			return self.handle(error: WSServerResponseError.invalidCommand, on: context.userWS, context: nil)
+		}
+
 		do {
-			try handler?.handle(context)
+			try handler.handle(context)
 		} catch {
 			self.handle(error: error, on: context.userWS, context: context)
 		}

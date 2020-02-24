@@ -9,12 +9,13 @@ class LobbyController: WebSocketController {
 
 	private var lobbyMatches: [Match.ID: Match] = [:]
 	private var matchOptions: [Match.ID: Set<GameState.Option>] = [:]
-	private var connections: [User.ID: WebSocket] = [:]
 	private var readyUsers: Set<User.ID> = []
+
+	var activeConnections: [User.ID: WebSocket] = [:]
 
 	func onJoinLobbyMatch(_ ws: WebSocket, _ request: Request, _ user: User) throws {
 		let userId = try user.requireID()
-		connections[userId] = ws
+		register(connection: ws, to: userId)
 
 		guard let rawMatchId = request.parameters.rawValues(for: Match.self).first,
 			let matchId = UUID(rawMatchId) else {
@@ -47,18 +48,13 @@ class LobbyController: WebSocketController {
 			let opponentId = match.otherPlayer(from: userId)
 			let opponentWS: WebSocket?
 			if let opponentId = opponentId {
-				opponentWS = self.connections[opponentId]
+				opponentWS = self.activeConnections[opponentId]
 			} else {
 				opponentWS = nil
 			}
 
 			let context = WSClientLobbyContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: ws, opponentWS: opponentWS, options: options)
 			self.handle(text: text, context: context)
-		}
-
-		// Remove the connection when the WebSocket closes
-		ws.onClose.whenComplete { [unowned self] in
-			self.connections[userId] = nil
 		}
 	}
 }
@@ -144,12 +140,11 @@ extension LobbyController {
 	private func removeFromLobby(context: WSClientMessageContext) {
 		lobbyMatches[context.matchId] = nil
 		matchOptions[context.matchId] = nil
-		connections[context.user] = nil
+		unregister(userId: context.user)
 		readyUsers.remove(context.user)
 		if let opponent = context.opponent {
-			connections[opponent] = nil
+			unregister(userId: opponent)
 			readyUsers.remove(opponent)
 		}
-
 	}
 }

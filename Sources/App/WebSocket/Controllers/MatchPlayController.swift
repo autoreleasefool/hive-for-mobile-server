@@ -9,17 +9,17 @@ class MatchPlayController: WebSocketController {
 
 	private var inProgressMatches: [Match.ID: Match] = [:]
 	private var matchGameStates: [Match.ID: GameState] = [:]
-	private var connections: [User.ID: WebSocket] = [:]
+	var activeConnections: [User.ID : WebSocket] = [:]
 
 	func startGamePlay(match: Match, userId: User.ID, ws: WebSocket) throws {
 		let matchId = try match.requireID()
-		connections[userId] = ws
+		register(connection: ws, to: userId)
 
 		#warning("TODO: need to keep clients in sync when one disconnects or encounters error")
 
 		ws.onText { [unowned self] ws, text in
 			guard let opponentId = match.otherPlayer(from: userId),
-				let opponentWS = self.connections[opponentId] else {
+				let opponentWS = self.activeConnections[opponentId] else {
 				return self.handle(
 					error: Abort(.internalServerError, reason: #"Opponent in match "\#(matchId)" could not be found"#),
 					on: ws,
@@ -37,11 +37,6 @@ class MatchPlayController: WebSocketController {
 
 			let context = WSClientMatchContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: ws, opponentWS: opponentWS, state: state)
 			self.handle(text: text, context: context)
-		}
-
-		// Remove the connection when the WebSocket closes
-		ws.onClose.whenComplete { [unowned self] in
-			self.connections[userId] = nil
 		}
 	}
 }

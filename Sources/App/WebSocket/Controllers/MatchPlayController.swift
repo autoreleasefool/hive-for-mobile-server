@@ -47,7 +47,7 @@ class MatchPlayController {
 
 	private func handle(error: Error, on ws: WebSocket, context: WSClientMessageContext?) {
 		if let serverError = error as? WSServerResponseError {
-
+			// Error can be gracefully handled
 		} else {
 
 		}

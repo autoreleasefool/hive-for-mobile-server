@@ -17,6 +17,6 @@ struct WSClientSendMessage: WSClientMessageHandler {
 
 extension WSClientSendMessage {
 	static func canParse(text: String) -> Bool {
-		text.starts(with: "MSG")
+		text.starts(with: "MSG ")
 	}
 }

@@ -22,6 +22,8 @@ func clientMessageHandler(from text: String) -> WSClientMessageHandler? {
 		return WSClientStartGame()
 	} else if WSClientSendMessage.canParse(text: text) {
 		return WSClientSendMessage(from: text)
+	} else if WSClientPlayMove.canParse(text: text) {
+		return WSClientPlayMove(from: text)
 	}
 
 	return nil

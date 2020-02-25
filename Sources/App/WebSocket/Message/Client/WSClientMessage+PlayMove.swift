@@ -25,16 +25,6 @@ extension WSClientMessage {
 			throw WSServerResponseError.invalidMovement(movement.notation)
 		}
 
-		let matchMovement = MatchMovement(from: movement, withContext: matchContext)
-		let promise = matchMovement.save(on: matchContext.userWS.request)
-
-		promise.whenSuccess { _ in
-			matchContext.userWS.webSocket.send(response: .state(matchContext.state))
-			matchContext.requiredOpponentWS.webSocket.send(response: .state(matchContext.state))
-		}
-
-		promise.whenFailure {
-			MatchPlayController.shared.handle(error: $0, on: context.userWS, context: context)
-		}
+		try MatchPlayController.shared.play(movement: movement, with: matchContext)
 	}
 }

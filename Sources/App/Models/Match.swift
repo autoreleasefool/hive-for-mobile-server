@@ -30,8 +30,8 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 
 	/// `true` if the host is White, `false` if the host is Black
 	private(set) var hostIsWhite: Bool
-	/// Winner of the game. White, Black, or nil for a tie
-	private(set) var winner: String?
+	/// ID of the winner of the game. `nil` for a tie
+	private(set) var winner: User.ID?
 
 	/// Options that were used in the game
 	private(set) var options: String
@@ -139,14 +139,15 @@ struct MatchDetailsResponse: Content {
 	let hostElo: Double?
 	let opponentElo: Double?
 	let hostIsWhite: Bool
-	let winner: String?
 	let options: String
 	let createdAt: Date?
 	let duration: TimeInterval?
 	let status: MatchStatus
 	let isAsyncPlay: Bool
+	let isComplete: Bool
 
 	var host: UserSummaryResponse?
+	var winner: UserSummaryResponse?
 	var opponent: UserSummaryResponse?
 	var moves: [MatchMovementResponse] = []
 
@@ -155,11 +156,11 @@ struct MatchDetailsResponse: Content {
 		self.hostElo = match.hostElo
 		self.opponentElo = match.opponentElo
 		self.hostIsWhite = match.hostIsWhite
-		self.winner = match.winner
 		self.options = match.options
 		self.createdAt = match.createdAt
 		self.duration = match.duration
 		self.status = match.status
 		self.isAsyncPlay = match.isAsyncPlay
+		self.isComplete = match.duration != nil
 	}
 }

@@ -25,6 +25,7 @@ final class UserController {
 					.all()
 					.and(result: $0)
 			}.map { matches, user in
+				#warning("TODO: need to add users/winners to MatchDetailsResponse")
 				var response = try UserDetailsResponse(from: user)
 				for match in matches {
 					guard match.hostId == user.id || match.opponentId == user.id else { continue }

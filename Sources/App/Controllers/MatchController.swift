@@ -38,6 +38,10 @@ final class MatchController {
 					} else if user.id == match.opponentId {
 						response.opponent = try UserSummaryResponse(from: user)
 					}
+
+					if user.id == match.winner {
+						response.winner = try UserSummaryResponse(from: user)
+					}
 				}
 				return response
 			}
@@ -62,6 +66,10 @@ final class MatchController {
 							response.host = try UserSummaryResponse(from: user)
 						} else if match.opponentId == user.id {
 							response.opponent = try UserSummaryResponse(from: user)
+						}
+
+						if match.winner == user.id {
+							response.winner = try UserSummaryResponse(from: user)
 						}
 					}
 					return response

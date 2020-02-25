@@ -1,5 +1,6 @@
 import Vapor
 import FluentSQLite
+import HiveEngine
 
 final class MatchMovement: SQLiteUUIDModel, Content, Migration {
 	var id: UUID?
@@ -19,6 +20,13 @@ final class MatchMovement: SQLiteUUIDModel, Content, Migration {
 
 	static var createdAtKey: TimestampKey? {
 		\.createdAt
+	}
+
+	init(from: RelativeMovement, withContext context: WSClientMatchContext) {
+		self.matchId = context.matchId
+		self.userId = context.user
+		self.notation = from.notation
+		self.ordinal = context.state.move
 	}
 }
 

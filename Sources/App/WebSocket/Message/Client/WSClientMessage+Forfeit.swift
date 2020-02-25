@@ -1,8 +1,9 @@
-//
-//  WSClientMessage+Forfeit.swift
-//  App
-//
-//  Created by Joseph Roque on 2020-02-24.
-//
+extension WSClientMessage {
+	static func handle(playerForfeit userId: User.ID, with context: WSClientMessageContext) throws {
+		guard let matchContext = context as? WSClientMatchContext else {
+			return context.userWS.webSocket.send(error: .invalidCommand)
+		}
 
-import Foundation
+		try MatchPlayController.shared.forfeitMatch(context: matchContext)
+	}
+}

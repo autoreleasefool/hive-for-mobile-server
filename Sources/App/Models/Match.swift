@@ -103,12 +103,14 @@ extension Match {
 		return self.save(on: conn)
 	}
 
-	func end(on conn: DatabaseConnectable) throws -> Future<Match> {
+	func end(winner: User.ID?, on conn: DatabaseConnectable) throws -> Future<Match> {
 		let matchId = try requireID()
 
 		guard status == .active else {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to end (\#(status)"#)
 		}
+
+		self.winner = winner
 
 		status = .ended
 		if #available(OSX 10.15, *) {

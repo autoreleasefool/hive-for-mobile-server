@@ -16,6 +16,7 @@ enum WSClientMessage {
 	case sendMessage(String)
 	case setOption(GameState.Option, Bool)
 	case playerReady
+	case forfeit
 
 	init(from: String) throws {
 		if from.starts(with: "SET") {
@@ -26,6 +27,8 @@ enum WSClientMessage {
 			self = .playerReady
 		} else if from.starts(with: "MOV") {
 			self = try .playMove(WSClientMessage.extractMovement(from: from))
+		} else if from.starts(with: "FF") {
+			self = .forfeit
 		}
 
 		throw WSServerResponseError.invalidCommand
@@ -41,6 +44,8 @@ enum WSClientMessage {
 			try WSClientMessage.handle(option: option, value: value, with: context)
 		case .playerReady:
 			try WSClientMessage.handle(playerReady: context.user, with: context)
+		case .forfeit:
+			try WSClientMessage.handle(playerForfeit: context.user, with: context)
 		}
 	}
 }

@@ -32,7 +32,7 @@ extension WebSocket {
 		}
 	}
 
-	func send(error: WSServerResponseError) {
-		self.send("ERR \(error.errorCode) \(error.errorDescription)")
+	func send(error: WSServerResponseError, fromUser: User.ID?) {
+		self.send("ERR \(fromUser?.description ?? "null") \(error.errorCode) \(error.errorDescription)")
 	}
 }

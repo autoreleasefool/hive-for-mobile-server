@@ -35,9 +35,11 @@ extension WebSocketController {
 
 	func handle(error: Error, on wsContext: WebSocketContext, context: WSClientMessageContext?) {
 		if let serverError = error as? WSServerResponseError {
-			// Error can be gracefully handled
+			wsContext.webSocket.send(error: serverError, fromUser: context?.user)
+			context?.opponentWS?.webSocket.send(error: serverError, fromUser: context?.user)
 		} else {
-
+			wsContext.webSocket.send(error: WSServerResponseError.unknownError(error), fromUser: context?.user)
+			context?.opponentWS?.webSocket.send(error: WSServerResponseError.unknownError(error), fromUser: context?.user)
 		}
 	}
 }

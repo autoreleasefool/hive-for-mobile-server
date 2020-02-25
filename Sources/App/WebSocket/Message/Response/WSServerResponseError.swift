@@ -10,6 +10,7 @@ enum WSServerResponseError: LocalizedError {
 
 	// Server/state errors
 	case optionValueNotUpdated(GameState.Option, String)
+	case unknownError(Error)
 
 	var errorCode: Int {
 		switch self {
@@ -18,6 +19,7 @@ enum WSServerResponseError: LocalizedError {
 		case .optionNonModifiable:   return 103
 		case .invalidCommand:        return 199
 		case .optionValueNotUpdated: return 201
+		case .unknownError:          return 999
 		}
 	}
 
@@ -33,6 +35,8 @@ enum WSServerResponseError: LocalizedError {
 			return "Invalid command"
 		case .optionValueNotUpdated(let option, let value):
 			return #"Could not set "\#(option)" to "\#(value)""#
+		case .unknownError(let error):
+			return error.localizedDescription
 		}
 	}
 }

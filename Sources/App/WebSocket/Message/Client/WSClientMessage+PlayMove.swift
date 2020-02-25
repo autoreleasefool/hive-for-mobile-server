@@ -17,14 +17,6 @@ extension WSClientMessage {
 			throw WSServerResponseError.invalidCommand
 		}
 
-		guard matchContext.isUserTurn else {
-			throw WSServerResponseError.notPlayerTurn
-		}
-
-		guard matchContext.state.apply(relativeMovement: movement) else {
-			throw WSServerResponseError.invalidMovement(movement.notation)
-		}
-
 		try MatchPlayController.shared.play(movement: movement, with: matchContext)
 	}
 }

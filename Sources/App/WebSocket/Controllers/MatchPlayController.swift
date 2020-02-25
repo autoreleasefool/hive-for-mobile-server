@@ -80,6 +80,19 @@ class WSClientMatchContext: WSClientMessageContext {
 	var isUserTurn: Bool {
 		return (isUserHost && isHostTurn) || (!isUserHost && !isHostTurn)
 	}
+
+	var matchWinner: User.ID? {
+		let winner = state.winner
+		if winner.count == 2 {
+			return nil
+		}
+
+		switch winner.first {
+		case .white: return match.hostIsWhite ? match.hostId : match.opponentId
+		case .black: return match.hostIsWhite ? match.opponentId : match.hostId
+		case .none: return nil
+		}
+	}
 }
 
 extension MatchPlayController {
@@ -95,11 +108,32 @@ extension MatchPlayController {
 		try startGamePlay(match: context.match, userId: opponent, wsContext: opponentWS)
 	}
 
+	func endMatch(context: WSClientMatchContext) throws {
+		guard context.state.isEndGame else {
+			throw Abort(.internalServerError, reason: #"Cannot end match "\#(context.matchId)" before it has ended"#)
+		}
+
+		let promise = try context.match
+			.end(winner: context.matchWinner, on: context.userWS.request)
+
+		promise.whenSuccess { [unowned self] _ in
+			self.inProgressMatches[context.matchId] = nil
+			self.matchGameStates[context.matchId] = nil
+			self.unregister(userId: context.user)
+			self.unregister(userId: context.requiredOpponent)
+		}
+
+		promise.whenFailure { [unowned self] in
+			self.handle(error: $0, on: context.userWS, context: context)
+			self.handle(error: $0, on: context.requiredOpponentWS, context: context)
+		}
+	}
+
 	func forfeitMatch(context: WSClientMatchContext) throws {
 		let promise = try context.match
 			.end(winner: context.requiredOpponent, on: context.userWS.request)
 
-		promise.whenSuccess { match in
+		promise.whenSuccess { _ in
 			context.userWS.webSocket.send(response: .forfeit(context.user))
 			context.requiredOpponentWS.webSocket.send(response: .forfeit(context.user))
 		}
@@ -110,6 +144,14 @@ extension MatchPlayController {
 	}
 
 	func play(movement: RelativeMovement, with context: WSClientMatchContext) throws {
+		guard context.isUserTurn else {
+			throw WSServerResponseError.notPlayerTurn
+		}
+
+		guard context.state.apply(relativeMovement: movement) else {
+			throw WSServerResponseError.invalidMovement(movement.notation)
+		}
+
 		let matchMovement = MatchMovement(from: movement, withContext: context)
 		let promise = matchMovement.save(on: context.userWS.request)
 
@@ -121,5 +163,8 @@ extension MatchPlayController {
 		promise.whenFailure { [unowned self] in
 			self.handle(error: $0, on: context.userWS, context: context)
 		}
+
+		guard context.state.isEndGame else { return }
+		try endMatch(context: context)
 	}
 }

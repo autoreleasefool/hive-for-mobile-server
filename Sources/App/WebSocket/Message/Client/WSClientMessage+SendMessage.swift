@@ -8,7 +8,7 @@ extension WSClientMessage {
 	}
 
 	static func handle(message: String, with context: WSClientMessageContext) throws {
-		context.userWS.send(response: .message(context.user, message))
-		context.opponentWS?.send(response: .message(context.user, message))
+		context.userWS.webSocket.send(response: .message(context.user, message))
+		context.opponentWS?.webSocket.send(response: .message(context.user, message))
 	}
 }

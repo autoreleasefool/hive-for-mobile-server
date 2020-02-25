@@ -25,7 +25,7 @@ extension WSClientMessage {
 			throw WSServerResponseError.invalidMovement(movement.notation)
 		}
 
-		matchContext.userWS.send(response: .state(matchContext.state))
-		matchContext.requiredOpponentWS.send(response: .state(matchContext.state))
+		matchContext.userWS.webSocket.send(response: .state(matchContext.state))
+		matchContext.requiredOpponentWS.webSocket.send(response: .state(matchContext.state))
 	}
 }

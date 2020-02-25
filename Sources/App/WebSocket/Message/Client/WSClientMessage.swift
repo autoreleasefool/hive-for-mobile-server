@@ -7,8 +7,8 @@ protocol WSClientMessageContext: class {
 	var matchId: Match.ID { get }
 	var match: Match { get }
 
-	var userWS: WebSocket { get }
-	var opponentWS: WebSocket? { get }
+	var userWS: WebSocketContext { get }
+	var opponentWS: WebSocketContext? { get }
 }
 
 enum WSClientMessage {

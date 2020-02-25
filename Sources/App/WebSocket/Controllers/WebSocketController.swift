@@ -1,17 +1,22 @@
 import Vapor
 
-protocol WebSocketController: class {
-	func register(connection: WebSocket, to userid: User.ID)
-	func handle(text: String, context: WSClientMessageContext)
-	func handle(error: Error, on ws: WebSocket, context: WSClientMessageContext?)
+struct WebSocketContext {
+	let webSocket: WebSocket
+	let request: Request
+}
 
-	var activeConnections: [User.ID: WebSocket] { get set }
+protocol WebSocketController: class {
+	func register(connection: WebSocketContext, to userid: User.ID)
+	func handle(text: String, context: WSClientMessageContext)
+	func handle(error: Error, on ws: WebSocketContext, context: WSClientMessageContext?)
+
+	var activeConnections: [User.ID: WebSocketContext] { get set }
 }
 
 extension WebSocketController {
-	func register(connection: WebSocket, to userId: User.ID) {
+	func register(connection: WebSocketContext, to userId: User.ID) {
 		activeConnections[userId] = connection
-		connection.onClose.whenComplete { [unowned self] in
+		connection.webSocket.onClose.whenComplete { [unowned self] in
 			self.unregister(userId: userId)
 		}
 	}
@@ -28,7 +33,7 @@ extension WebSocketController {
 		}
 	}
 
-	func handle(error: Error, on ws: WebSocket, context: WSClientMessageContext?) {
+	func handle(error: Error, on wsContext: WebSocketContext, context: WSClientMessageContext?) {
 		if let serverError = error as? WSServerResponseError {
 			// Error can be gracefully handled
 		} else {

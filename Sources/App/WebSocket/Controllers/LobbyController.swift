@@ -11,11 +11,12 @@ class LobbyController: WebSocketController {
 	private var matchOptions: [Match.ID: Set<GameState.Option>] = [:]
 	private var readyUsers: Set<User.ID> = []
 
-	var activeConnections: [User.ID: WebSocket] = [:]
+	var activeConnections: [User.ID: WebSocketContext] = [:]
 
 	func onJoinLobbyMatch(_ ws: WebSocket, _ request: Request, _ user: User) throws {
 		let userId = try user.requireID()
-		register(connection: ws, to: userId)
+		let wsContext = WebSocketContext(webSocket: ws, request: request)
+		register(connection: wsContext, to: userId)
 
 		guard let rawMatchId = request.parameters.rawValues(for: Match.self).first,
 			let matchId = UUID(rawMatchId) else {
@@ -32,7 +33,7 @@ class LobbyController: WebSocketController {
 			guard let match = self.lobbyMatches[matchId] else {
 				return self.handle(
 					error: Abort(.badRequest, reason: #"Match with ID "\#(matchId)" could not be found"#),
-					on: ws,
+					on: wsContext,
 					context: nil
 				)
 			}
@@ -40,20 +41,20 @@ class LobbyController: WebSocketController {
 			guard let options = self.matchOptions[matchId] else {
 				return self.handle(
 					error: Abort(.badRequest, reason: #"Could not find Set<GameState.Option> for match "\#(matchId)""#),
-					on: ws,
+					on: wsContext,
 					context: nil
 				)
 			}
 
 			let opponentId = match.otherPlayer(from: userId)
-			let opponentWS: WebSocket?
+			let opponentWSContext: WebSocketContext?
 			if let opponentId = opponentId {
-				opponentWS = self.activeConnections[opponentId]
+				opponentWSContext = self.activeConnections[opponentId]
 			} else {
-				opponentWS = nil
+				opponentWSContext = nil
 			}
 
-			let context = WSClientLobbyContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: ws, opponentWS: opponentWS, options: options)
+			let context = WSClientLobbyContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: wsContext, opponentWS: opponentWSContext, options: options)
 			self.handle(text: text, context: context)
 		}
 	}
@@ -67,8 +68,8 @@ class WSClientLobbyContext: WSClientMessageContext {
 	let matchId: Match.ID
 	let match: Match
 
-	let userWS: WebSocket
-	let opponentWS: WebSocket?
+	let userWS: WebSocketContext
+	let opponentWS: WebSocketContext?
 
 	var options: Set<GameState.Option>
 
@@ -76,7 +77,7 @@ class WSClientLobbyContext: WSClientMessageContext {
 		return GameState(options: options)
 	}
 
-	init(user: User.ID, opponent: User.ID?, matchId: Match.ID, match: Match, userWS: WebSocket, opponentWS: WebSocket?, options: Set<GameState.Option>) {
+	init(user: User.ID, opponent: User.ID?, matchId: Match.ID, match: Match, userWS: WebSocketContext, opponentWS: WebSocketContext?, options: Set<GameState.Option>) {
 		self.user = user
 		self.opponent = opponent
 		self.matchId = matchId
@@ -127,8 +128,8 @@ extension LobbyController {
 		}
 
 		let response = WSServerResponse.setPlayerReady(context.user, readyUsers.contains(context.user))
-		context.userWS.send(response: response)
-		context.opponentWS?.send(response: response)
+		context.userWS.webSocket.send(response: response)
+		context.opponentWS?.webSocket.send(response: response)
 
 		if let opponent = context.opponent,
 			readyUsers.contains(context.user) && readyUsers.contains(opponent) {

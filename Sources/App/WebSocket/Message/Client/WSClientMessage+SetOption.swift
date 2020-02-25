@@ -26,7 +26,7 @@ extension WSClientMessage {
 		}
 
 		lobbyContext.options.set(option, to: value)
-		lobbyContext.userWS.send(response: .setOption(option, value))
-		lobbyContext.opponentWS?.send(response: .setOption(option, value))
+		lobbyContext.userWS.webSocket.send(response: .setOption(option, value))
+		lobbyContext.opponentWS?.webSocket.send(response: .setOption(option, value))
 	}
 }

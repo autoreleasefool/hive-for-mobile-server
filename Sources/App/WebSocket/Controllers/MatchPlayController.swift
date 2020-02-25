@@ -9,20 +9,20 @@ class MatchPlayController: WebSocketController {
 
 	private var inProgressMatches: [Match.ID: Match] = [:]
 	private var matchGameStates: [Match.ID: GameState] = [:]
-	var activeConnections: [User.ID : WebSocket] = [:]
+	var activeConnections: [User.ID : WebSocketContext] = [:]
 
-	func startGamePlay(match: Match, userId: User.ID, ws: WebSocket) throws {
+	func startGamePlay(match: Match, userId: User.ID, wsContext: WebSocketContext) throws {
 		let matchId = try match.requireID()
-		register(connection: ws, to: userId)
+		register(connection: wsContext, to: userId)
 
 		#warning("TODO: need to keep clients in sync when one disconnects or encounters error")
 
-		ws.onText { [unowned self] ws, text in
+		wsContext.webSocket.onText { [unowned self] ws, text in
 			guard let opponentId = match.otherPlayer(from: userId),
-				let opponentWS = self.activeConnections[opponentId] else {
+				let opponentWSContext = self.activeConnections[opponentId] else {
 				return self.handle(
 					error: Abort(.internalServerError, reason: #"Opponent in match "\#(matchId)" could not be found"#),
-					on: ws,
+					on: wsContext,
 					context: nil
 				)
 			}
@@ -30,12 +30,12 @@ class MatchPlayController: WebSocketController {
 			guard let state = self.matchGameStates[matchId] else {
 				return self.handle(
 					error: Abort(.internalServerError, reason: #"GameState for match "\#(matchId)" could not be found"#),
-					on: ws,
+					on: wsContext,
 					context: nil
 				)
 			}
 
-			let context = WSClientMatchContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: ws, opponentWS: opponentWS, state: state)
+			let context = WSClientMatchContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: wsContext, opponentWS: opponentWSContext, state: state)
 			self.handle(text: text, context: context)
 		}
 	}
@@ -50,13 +50,13 @@ class WSClientMatchContext: WSClientMessageContext {
 	let matchId: Match.ID
 	let match: Match
 
-	let userWS: WebSocket
-	let opponentWS: WebSocket?
-	let requiredOpponentWS: WebSocket
+	let userWS: WebSocketContext
+	let opponentWS: WebSocketContext?
+	let requiredOpponentWS: WebSocketContext
 
 	let state: GameState
 
-	init(user: User.ID, opponent: User.ID, matchId: Match.ID, match: Match, userWS: WebSocket, opponentWS: WebSocket, state: GameState) {
+	init(user: User.ID, opponent: User.ID, matchId: Match.ID, match: Match, userWS: WebSocketContext, opponentWS: WebSocketContext, state: GameState) {
 		self.user = user
 		self.opponent = opponent
 		self.requiredOpponent = opponent
@@ -91,7 +91,7 @@ extension MatchPlayController {
 
 		inProgressMatches[context.matchId] = context.match
 		matchGameStates[context.matchId] = context.gameState
-		try startGamePlay(match: context.match, userId: context.user, ws: context.userWS)
-		try startGamePlay(match: context.match, userId: opponent, ws: opponentWS)
+		try startGamePlay(match: context.match, userId: context.user, wsContext: context.userWS)
+		try startGamePlay(match: context.match, userId: opponent, wsContext: opponentWS)
 	}
 }

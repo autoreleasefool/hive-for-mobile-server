@@ -95,17 +95,8 @@ extension MatchPlayController {
 		try startGamePlay(match: context.match, userId: opponent, wsContext: opponentWS)
 	}
 
-	func forfeitMatch(context: WSClientMatchContext) throws {
-		let promise = try context.match
+	func forfeitMatch(context: WSClientMatchContext) throws -> Future<Match> {
+		try context.match
 			.end(winner: context.requiredOpponent, on: context.userWS.request)
-
-		promise.whenSuccess { match in
-			context.userWS.webSocket.send(response: .forfeit(context.user))
-			context.requiredOpponentWS.webSocket.send(response: .forfeit(context.user))
-		}
-
-		promise.whenFailure { error in
-			self.handle(error: error, on: context.userWS, context: context)
-		}
 	}
 }

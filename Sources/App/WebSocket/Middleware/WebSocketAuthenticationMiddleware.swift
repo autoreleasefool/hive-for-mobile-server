@@ -1,7 +1,11 @@
 import Vapor
 
 struct WebSocketAuthenticationMiddleware {
-	static func handle(webSocket: WebSocket, request: Request, handler: @escaping WebSocketAuthenticationResponder.Handler) {
+	static func handle(
+		webSocket: WebSocket,
+		request: Request,
+		handler: @escaping WebSocketAuthenticationResponder.Handler
+	) {
 		let authenticationRequiredResponder = WebSocketAuthenticationResponder(webSocket: webSocket, handler: handler)
 		let middleware = User.tokenAuthMiddleware()
 

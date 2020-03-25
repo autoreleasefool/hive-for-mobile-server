@@ -29,7 +29,7 @@ class LobbyController: WebSocketController {
 
 		#warning("TODO: need to keep clients in sync when one disconnects or encounters error")
 
-		ws.onText { [unowned self] ws, text in
+		ws.onText { [unowned self] _, text in
 			guard let match = self.lobbyMatches[matchId] else {
 				return self.handle(
 					error: Abort(.badRequest, reason: #"Match with ID "\#(matchId)" could not be found"#),
@@ -40,7 +40,10 @@ class LobbyController: WebSocketController {
 
 			guard let options = self.matchOptions[matchId] else {
 				return self.handle(
-					error: Abort(.badRequest, reason: #"Could not find Set<GameState.Option> for match "\#(matchId)""#),
+					error: Abort(
+						.badRequest,
+						reason: #"Could not find Set<GameState.Option> for match "\#(matchId)""#
+					),
 					on: wsContext,
 					context: nil
 				)
@@ -54,7 +57,15 @@ class LobbyController: WebSocketController {
 				opponentWSContext = nil
 			}
 
-			let context = WSClientLobbyContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: wsContext, opponentWS: opponentWSContext, options: options)
+			let context = WSClientLobbyContext(
+				user: userId,
+				opponent: opponentId,
+				matchId: matchId,
+				match: match,
+				userWS: wsContext,
+				opponentWS: opponentWSContext,
+				options: options
+			)
 			self.handle(text: text, context: context)
 		}
 	}
@@ -77,7 +88,15 @@ class WSClientLobbyContext: WSClientMessageContext {
 		return GameState(options: options)
 	}
 
-	init(user: User.ID, opponent: User.ID?, matchId: Match.ID, match: Match, userWS: WebSocketContext, opponentWS: WebSocketContext?, options: Set<GameState.Option>) {
+	init(
+		user: User.ID,
+		opponent: User.ID?,
+		matchId: Match.ID,
+		match: Match,
+		userWS: WebSocketContext,
+		opponentWS: WebSocketContext?,
+		options: Set<GameState.Option>
+	) {
 		self.user = user
 		self.opponent = opponent
 		self.matchId = matchId
@@ -105,7 +124,11 @@ extension LobbyController {
 			}
 	}
 
-	func add(opponent: User.ID, to matchId: Match.ID, on conn: DatabaseConnectable) throws -> Future<JoinMatchResponse> {
+	func add(
+		opponent: User.ID,
+		to matchId: Match.ID,
+		on conn: DatabaseConnectable
+	) throws -> Future<JoinMatchResponse> {
 		guard let match = lobbyMatches[matchId] else {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
 		}

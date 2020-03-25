@@ -30,7 +30,16 @@ final class User: SQLiteUUIDModel, Content, Migration, Parameter {
 		self.isBot = false
 	}
 
-	init(id: UUID?, email: String, password: String, displayName: String, elo: Double, avatarUrl: String?, isBot: Bool, isAdmin: Bool) {
+	init(
+		id: UUID?,
+		email: String,
+		password: String,
+		displayName: String,
+		elo: Double,
+		avatarUrl: String?,
+		isBot: Bool,
+		isAdmin: Bool
+	) {
 		self.id = id
 		self.email = email
 		self.password = password
@@ -158,6 +167,15 @@ extension User {
 			return nil
 		}
 
-		self.init(id: optionalFields.id, email: email, password: password, displayName: displayName, elo: elo, avatarUrl: optionalFields.avatarUrl, isBot: isBot, isAdmin: isAdmin)
+		self.init(
+			id: optionalFields.id,
+			email: email,
+			password: password,
+			displayName: displayName,
+			elo: elo,
+			avatarUrl: optionalFields.avatarUrl,
+			isBot: isBot,
+			isAdmin: isAdmin
+		)
 	}
 }

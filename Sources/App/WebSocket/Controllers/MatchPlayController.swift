@@ -9,7 +9,7 @@ class MatchPlayController: WebSocketController {
 
 	private var inProgressMatches: [Match.ID: Match] = [:]
 	private var matchGameStates: [Match.ID: GameState] = [:]
-	var activeConnections: [User.ID : WebSocketContext] = [:]
+	var activeConnections: [User.ID: WebSocketContext] = [:]
 
 	func startGamePlay(match: Match, userId: User.ID, wsContext: WebSocketContext) throws {
 		let matchId = try match.requireID()
@@ -17,7 +17,7 @@ class MatchPlayController: WebSocketController {
 
 		#warning("TODO: need to keep clients in sync when one disconnects or encounters error")
 
-		wsContext.webSocket.onText { [unowned self] ws, text in
+		wsContext.webSocket.onText { [unowned self] _, text in
 			guard let opponentId = match.otherPlayer(from: userId),
 				let opponentWSContext = self.activeConnections[opponentId] else {
 				return self.handle(
@@ -29,13 +29,24 @@ class MatchPlayController: WebSocketController {
 
 			guard let state = self.matchGameStates[matchId] else {
 				return self.handle(
-					error: Abort(.internalServerError, reason: #"GameState for match "\#(matchId)" could not be found"#),
+					error: Abort(
+						.internalServerError,
+						reason: #"GameState for match "\#(matchId)" could not be found"#
+					),
 					on: wsContext,
 					context: nil
 				)
 			}
 
-			let context = WSClientMatchContext(user: userId, opponent: opponentId, matchId: matchId, match: match, userWS: wsContext, opponentWS: opponentWSContext, state: state)
+			let context = WSClientMatchContext(
+				user: userId,
+				opponent: opponentId,
+				matchId: matchId,
+				match: match,
+				userWS: wsContext,
+				opponentWS: opponentWSContext,
+				state: state
+			)
 			self.handle(text: text, context: context)
 		}
 	}
@@ -56,7 +67,15 @@ class WSClientMatchContext: WSClientMessageContext {
 
 	let state: GameState
 
-	init(user: User.ID, opponent: User.ID, matchId: Match.ID, match: Match, userWS: WebSocketContext, opponentWS: WebSocketContext, state: GameState) {
+	init(
+		user: User.ID,
+		opponent: User.ID,
+		matchId: Match.ID,
+		match: Match,
+		userWS: WebSocketContext,
+		opponentWS: WebSocketContext,
+		state: GameState
+	) {
 		self.user = user
 		self.opponent = opponent
 		self.requiredOpponent = opponent

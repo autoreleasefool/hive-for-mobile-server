@@ -4,7 +4,9 @@ extension WSClientMessage {
 	static func extractOption(from string: String) throws -> GameState.Option {
 		guard let optionStart = string.firstIndex(of: " "),
 			let optionEnd = string.lastIndex(of: " "),
-			let option = GameState.Option(rawValue: String(string[optionStart...optionEnd]).trimmingCharacters(in: .whitespaces)) else {
+			let option = GameState.Option(
+				rawValue: String(string[optionStart...optionEnd]).trimmingCharacters(in: .whitespaces)
+			) else {
 			throw WSServerResponseError.invalidCommand
 		}
 

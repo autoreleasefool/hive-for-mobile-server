@@ -61,7 +61,11 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	}
 
 	func generateSocketUrl() throws -> URL {
-		try Env.socketURL
+		#if DEBUG
+		Env.load()
+		#endif
+
+		return try Env.socketURL
 			.appendingPathComponent("\(requireID())")
 			.appendingPathComponent("play")
 	}

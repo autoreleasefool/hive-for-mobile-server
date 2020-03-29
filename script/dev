@@ -1,0 +1,30 @@
+# Source: https://github.com/NLDev/ngrok-starter
+
+pkill -f ngrok
+EXEC=$(ngrok http 8080 >> /dev/null &)
+sleep 5s
+
+sq='"'
+lnpref=public_url
+prefix="${lnpref}:"
+tnl='localhost:4040/api/tunnels'
+
+unset API
+API=$(curl -s $tnl | awk -F"," -v k=$lnpref '{
+    gsub(/{|}/,"")
+    for(i=1;i<=NF;i++){
+        if ( $i ~ k ){ print $i }
+    }
+}')
+
+API=${API//$sq}
+API=${API//$prefix}
+IFS=$'\n' read -rd '' -a FST <<<"$API"
+FST=${FST//http\:\/\/}
+sleep 1s
+LNK_HTTPS=$FST
+LNK_HTTPS=${LNK_HTTPS//\//\\\/}
+echo $LNK_HTTPS
+
+sed -i '' "s/baseURL = URL[(]string: \".*\"[)]!/baseURL = URL(string: \"$LNK_HTTPS\")!/g" ../hive-for-ios/Hive-for-iOS/Source/API/HiveAPI.swift
+sed -i '' "s/baseURL = URL[(]string: \".*\"[)]!/baseURL = URL(string: \"$LNK_HTTPS\")!/g" ../hive-for-ios/Hive-for-iOS/Source/API/HiveGameClient.swift

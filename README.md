@@ -2,6 +2,10 @@
 
 The backend for the [Hive for iOS](https://github.com/josephroquedev/hive-for-ios) app.
 
+## API
+
+For more information on the API, see [API.md](./API.md)
+
 ## Getttng Started
 
 1. Open `hive-for-ios-server.xcodeproj` in Xcode
@@ -12,7 +16,6 @@ The backend for the [Hive for iOS](https://github.com/josephroquedev/hive-for-io
 ### Optional
 
 To set up the app for development, run the `script/dev` script to begin ngrok and set up the [Hive for iOS](https://github.com/josephroquedev/hive-for-ios) client to connect to your instance
-
 
 ## Requirements
 

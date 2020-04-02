@@ -56,7 +56,7 @@ final class UserController {
 				}
 
 				let hash = try BCrypt.hash(user.password)
-				return User(email: user.email, password: hash, displayName: user.displayName)
+				return User(email: user.email.lowercased(), password: hash, displayName: user.displayName)
 					.save(on: request)
 			}.flatMap {
 				try UserToken(forUser: $0.requireID())

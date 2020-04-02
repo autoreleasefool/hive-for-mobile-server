@@ -5,17 +5,17 @@ enum Constants {
 }
 
 public enum Env {
-	private(set) static var baseURL = URL(string: "")!
-	private(set) static var socketURL = URL(string: "")!
+	private(set) static var baseURL = URL(string: "https://localhost:8080")!
+	private(set) static var socketURL = URL(string: "ws://localhost:8080")!
 
 	static func load() {
-		guard let envFile = URL(string: FileManager.default.currentDirectoryPath)?
+		guard let envFile = URL(string: "file://\(FileManager.default.currentDirectoryPath)")?
 			.appendingPathComponent(".env") else { return }
 		let contents: String
 		do {
 			contents = try String(contentsOf: envFile, encoding: .utf8)
 		} catch {
-			fatalError("Failed to read .env")
+			fatalError("Failed to read .env, \(error)")
 		}
 
 		for line in contents.split(separator: "\n") {

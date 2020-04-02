@@ -47,9 +47,11 @@ extension UserToken: Token {
 // MARK: - Response
 
 struct UserTokenResponse: Content {
+	let id: UserToken.ID
 	let value: String
 
-	init(from token: UserToken) {
+	init(from token: UserToken) throws {
+		self.id = try token.requireID()
 		self.value = token.token
 	}
 }

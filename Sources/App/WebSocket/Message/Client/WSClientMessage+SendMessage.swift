@@ -1,3 +1,11 @@
+//
+//  WSClientMessage+SendMessage.swift
+//  Hive-for-iOS-server
+//
+//  Created by Joseph Roque on 2020-04-04.
+//  Copyright © 2020 Joseph Roque. All rights reserved.
+//
+
 extension WSClientMessage {
 	static func extractMessage(from string: String) throws -> String {
 		guard let messageStart = string.firstIndex(of: " ") else {

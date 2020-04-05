@@ -12,17 +12,6 @@ import FluentSQLite
 
 struct Populate: SQLiteMigration {
 	static func prepare(on conn: SQLiteConnection) -> Future<Void> {
-		let joseph = User(
-				id: UUID(uuidString: "60448917-d472-4099-b1c8-956935245d6e"),
-				email: "a@b.ca",
-				password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
-				displayName: "Joseph",
-				elo: 1000,
-				avatarUrl: "https://avatars1.githubusercontent.com/u/6619581?v=4",
-				isBot: false,
-				isAdmin: true
-		)
-
 		_ = User(
 				id: nil,
 				email: "b@c.ca",
@@ -33,6 +22,7 @@ struct Populate: SQLiteMigration {
 				isBot: false,
 				isAdmin: false
 		).save(on: conn).transform(to: ())
+
 		_ = User(
 				id: nil,
 				email: "c@d.ca",
@@ -43,6 +33,17 @@ struct Populate: SQLiteMigration {
 				isBot: false,
 				isAdmin: true
 		).save(on: conn).transform(to: ())
+
+		let joseph = User(
+				id: UUID(uuidString: "60448917-d472-4099-b1c8-956935245d6e")!,
+				email: "a@b.ca",
+				password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
+				displayName: "Joseph",
+				elo: 1000,
+				avatarUrl: "https://avatars1.githubusercontent.com/u/6619581?v=4",
+				isBot: false,
+				isAdmin: true
+		)
 
 		return joseph.save(on: conn)
 			.thenThrowing { result in

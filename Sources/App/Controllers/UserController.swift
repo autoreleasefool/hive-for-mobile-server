@@ -93,6 +93,15 @@ final class UserController {
 			.delete()
 			.transform(to: .ok)
 	}
+
+	func validate(_ request: Request) throws -> Future<UserTokenValidationResponse> {
+		let user = try request.requireAuthenticated(User.self)
+		guard let token = request.http.headers.bearerAuthorization?.token else {
+			throw Abort(.badRequest, reason: "Token not supplied for validation")
+		}
+		let validation = try UserTokenValidationResponse(userId: user.requireID(), token: token)
+		return request.future(validation)
+	}
 }
 
 // MARK: RouteCollection
@@ -113,6 +122,7 @@ extension UserController: RouteCollection {
 		// Token authenticated routes
 		let tokenUserGroup = userGroup.grouped(User.tokenAuthMiddleware())
 		tokenUserGroup.delete("logout", use: logout)
+		tokenUserGroup.get("validate", use: validate)
 
 		// Admin authenticated routes
 		#warning("TODO: enable admin user group for production")

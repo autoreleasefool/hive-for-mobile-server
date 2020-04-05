@@ -61,6 +61,16 @@
 `OK`
 </details>
 
+**GET** api/users/validate - Token validation
+
+<summary>Example response</summary>
+<details>
+{
+	"userId": "SomeUserID",
+	"token": "SomeAccessToken"
+}
+</details>
+
 **GET** api/users/ID/details - User details
 
 <summary>Example response</summary>

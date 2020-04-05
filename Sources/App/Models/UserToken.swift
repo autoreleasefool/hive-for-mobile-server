@@ -63,3 +63,8 @@ struct UserTokenResponse: Content {
 		self.value = token.token
 	}
 }
+
+struct UserTokenValidationResponse: Content {
+	let userId: User.ID
+	let token: String
+}

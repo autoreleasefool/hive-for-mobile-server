@@ -16,7 +16,6 @@ final class MatchController {
 		let user = try request.requireAuthenticated(User.self)
 		let match = try Match(withHost: user)
 		return match.save(on: request)
-			.flatMap { try LobbyController.shared.open(match: $0, on: request) }
 			.map { try CreateMatchResponse(from: $0) }
 	}
 

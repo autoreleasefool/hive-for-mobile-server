@@ -129,6 +129,10 @@ extension MatchPlayController {
 			throw Abort(.internalServerError, reason: #"Cannot begin match "\#(context.matchId)" without opponent"#)
 		}
 
+		#warning("TODO: wait for the match to begin before continuing")
+		_ = try context.match
+			.begin(on: context.userWS.request)
+
 		inProgressMatches[context.matchId] = context.match
 		matchGameStates[context.matchId] = context.gameState
 		try startGamePlay(match: context.match, userId: context.user, wsContext: context.userWS)

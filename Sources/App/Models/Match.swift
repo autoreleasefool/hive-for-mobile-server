@@ -104,9 +104,12 @@ extension Match {
 	func begin(on conn: DatabaseConnectable) throws -> Future<Match> {
 		let matchId = try requireID()
 
-		guard status == .notStarted,
-			opponentId != nil else {
+		guard status == .notStarted else {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to begin (\#(status))"#)
+		}
+
+		guard opponentId != nil else {
+			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent."#)
 		}
 
 		#warning("TODO: get host and opponent's ELO")

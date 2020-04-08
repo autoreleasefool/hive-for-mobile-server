@@ -30,4 +30,3 @@ echo $LNK_HTTPS
 sed -i '' "s/BASE_URL=.*/BASE_URL=$LNK_HTTPS/g" ./.env
 sed -i '' "s/SOCKET_URL=.*/SOCKET_URL=$LNK_WS/g" ./.env
 sed -i '' "s/baseURL = URL[(]string: \".*\"[)]!/baseURL = URL(string: \"$LNK_HTTPS\")!/g" ../hive-for-ios/Hive-for-iOS/Source/API/HiveAPI.swift
-sed -i '' "s/baseURL = URL[(]string: \".*\"[)]!/baseURL = URL(string: \"$LNK_HTTPS\")!/g" ../hive-for-ios/Hive-for-iOS/Source/API/HiveGameClient.swift

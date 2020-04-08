@@ -15,9 +15,6 @@ enum WSServerResponse {
 	case setPlayerReady(User.ID, Bool)
 	case message(User.ID, String)
 	case forfeit(User.ID)
-//	case startGame
-//	case forfeit
-//	case error(WSServerError)
 }
 
 extension WebSocket {
@@ -31,12 +28,8 @@ extension WebSocket {
 			self.send("READY \(userId) \(isReady)")
 		case .message(let userId, let message):
 			self.send("MSG \(userId) \(message)")
-//		case .startGame:
-//			self.send("GLHF")
 		case .forfeit(let user):
 			self.send("FF \(user)")
-//		case .error(let error):
-//			self.send("ERR \(error.errorDescription)")
 		}
 	}
 

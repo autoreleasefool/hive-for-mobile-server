@@ -19,7 +19,7 @@ class MatchPlayController: WebSocketController {
 	private var matchGameStates: [Match.ID: GameState] = [:]
 	var activeConnections: [User.ID: WebSocketContext] = [:]
 
-	func startGamePlay(match: Match, userId: User.ID, wsContext: WebSocketContext) throws {
+	func startGamePlay(match: Match, state: GameState, userId: User.ID, wsContext: WebSocketContext) throws {
 		let matchId = try match.requireID()
 		register(connection: wsContext, to: userId)
 
@@ -57,6 +57,8 @@ class MatchPlayController: WebSocketController {
 			)
 			self.handle(text: text, context: context)
 		}
+
+		wsContext.webSocket.send(response: .state(state))
 	}
 }
 
@@ -135,8 +137,19 @@ extension MatchPlayController {
 
 		inProgressMatches[context.matchId] = context.match
 		matchGameStates[context.matchId] = context.gameState
-		try startGamePlay(match: context.match, userId: context.user, wsContext: context.userWS)
-		try startGamePlay(match: context.match, userId: opponent, wsContext: opponentWS)
+
+		try startGamePlay(
+			match: context.match,
+			state: context.gameState,
+			userId: opponent,
+			wsContext: opponentWS
+		)
+		try startGamePlay(
+			match: context.match,
+			state: context.gameState,
+			userId: context.user,
+			wsContext: context.userWS
+		)
 	}
 
 	func endMatch(context: WSClientMatchContext) throws {

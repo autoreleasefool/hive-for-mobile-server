@@ -15,6 +15,8 @@ enum WSServerResponse {
 	case setPlayerReady(User.ID, Bool)
 	case message(User.ID, String)
 	case forfeit(User.ID)
+	case playerJoined(User.ID)
+	case playerLeft(User.ID)
 }
 
 extension WebSocket {
@@ -30,6 +32,10 @@ extension WebSocket {
 			self.send("MSG \(userId) \(message)")
 		case .forfeit(let user):
 			self.send("FF \(user)")
+		case .playerJoined(let user):
+			self.send("JOIN \(user)")
+		case .playerLeft(let user):
+			self.send("LEAVE \(user)")
 		}
 	}
 

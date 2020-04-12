@@ -150,7 +150,10 @@ extension LobbyController {
 		}
 
 		return match.addOpponent(opponent, on: conn)
-			.map { try JoinMatchResponse(from: $0) }
+			.map { [weak self] in
+				self?.activeConnections[match.hostId]?.webSocket.send(response: .playerJoined(opponent))
+				return try JoinMatchResponse(from: $0)
+			}
 	}
 
 	func readyPlayer(_ context: WSClientLobbyContext) throws {

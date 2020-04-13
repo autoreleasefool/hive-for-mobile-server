@@ -97,11 +97,7 @@ class WSClientMatchContext: WSClientMessageContext {
 		self.state = state
 	}
 
-	private var isUserHost: Bool {
-		user == match.hostId
-	}
-
-	private var isHostTurn: Bool {
+	var isHostTurn: Bool {
 		(match.hostIsWhite && state.currentPlayer == .white) ||
 			(!match.hostIsWhite && state.currentPlayer == .black)
 	}

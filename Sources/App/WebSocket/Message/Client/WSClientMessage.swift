@@ -19,6 +19,12 @@ protocol WSClientMessageContext: class {
 	var opponentWS: WebSocketContext? { get }
 }
 
+extension WSClientMessageContext {
+	var isUserHost: Bool {
+		user == match.hostId
+	}
+}
+
 enum WSClientMessage {
 	case playMove(RelativeMovement)
 	case sendMessage(String)

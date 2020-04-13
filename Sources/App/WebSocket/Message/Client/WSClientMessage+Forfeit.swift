@@ -8,10 +8,12 @@
 
 extension WSClientMessage {
 	static func handle(playerForfeit userId: User.ID, with context: WSClientMessageContext) throws {
-		guard let matchContext = context as? WSClientMatchContext else {
-			return context.userWS.webSocket.send(error: .invalidCommand, fromUser: context.user)
+		if let matchContext = context as? WSClientMatchContext {
+			try MatchPlayController.shared.forfeitMatch(context: matchContext)
+		} else if let lobbyContext = context as? WSClientLobbyContext {
+			try LobbyController.shared.leaveMatch(context: lobbyContext)
+		} else {
+			context.userWS.webSocket.send(error: .invalidCommand, fromUser: context.user)
 		}
-
-		try MatchPlayController.shared.forfeitMatch(context: matchContext)
 	}
 }

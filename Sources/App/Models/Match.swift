@@ -101,6 +101,11 @@ extension Match {
 		return self.save(on: conn)
 	}
 
+	func removeOpponent(_ opponent: User.ID, on conn: DatabaseConnectable) -> Future<Match> {
+		self.opponentId = nil
+		return self.save(on: conn)
+	}
+
 	func begin(on conn: DatabaseConnectable) throws -> Future<Match> {
 		let matchId = try requireID()
 

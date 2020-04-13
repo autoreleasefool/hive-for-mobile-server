@@ -156,6 +156,25 @@ extension LobbyController {
 			}
 	}
 
+	func leaveMatch(context: WSClientLobbyContext) throws {
+		if context.isUserHost {
+			lobbyMatches[context.matchId] = nil
+			matchOptions[context.matchId] = nil
+			readyUsers.remove(context.user)
+			if let opponent = context.opponent {
+				readyUsers.remove(opponent)
+			}
+
+			_ = context.match.delete(on: context.userWS.request)
+			context.opponentWS?.webSocket.send(response: .playerLeft(context.user))
+		} else {
+			_ = context.match.removeOpponent(context.user, on: context.userWS.request)
+				.always {
+					context.opponentWS?.webSocket.send(response: .playerLeft(context.user))
+				}
+		}
+	}
+
 	func readyPlayer(_ context: WSClientLobbyContext) throws {
 		if context.opponent != nil {
 			readyUsers.set(context.user, to: !readyUsers.contains(context.user))

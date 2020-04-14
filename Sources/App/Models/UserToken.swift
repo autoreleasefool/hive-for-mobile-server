@@ -25,9 +25,7 @@ final class UserToken: Model, Migration, Content {
 	private(set) var userId: User.ID
 
 	init(forUser userId: User.ID) throws {
-		#warning("TODO: enable actual tokens")
-//		let token = try CryptoRandom().generateData(count: 16).base64EncodedString()
-		let token = "w6d9J8nap70BhiB63ZTyAQ=="
+		let token = try CryptoRandom().generateData(count: 16).base64EncodedString()
 		self.token = token
 		self.userId = userId
 	}

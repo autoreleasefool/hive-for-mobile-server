@@ -16,7 +16,8 @@ final class MatchController {
 		let user = try request.requireAuthenticated(User.self)
 		let match = try Match(withHost: user)
 		return match.save(on: request)
-			.map { try CreateMatchResponse(from: $0) }
+			.flatMap { try LobbyController.shared.open(match: $0, on: request) }
+			.map {  try CreateMatchResponse(from: $0) }
 	}
 
 	func details(_ request: Request) throws -> Future<MatchDetailsResponse> {

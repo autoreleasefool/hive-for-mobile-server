@@ -10,6 +10,12 @@ import Vapor
 import FluentSQLite
 import HiveEngine
 
+extension NSNotification.Name {
+	enum Match {
+		static let DidUpdate = NSNotification.Name("Match.DidUpdate")
+	}
+}
+
 enum MatchStatus: Int, SQLiteEnumType {
 	/// A match that has an opponent but has not started
 	case notStarted = 1
@@ -90,6 +96,11 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 
 	var gameOptions: Set<GameState.Option> {
 		GameState.Option.parse(self.options)
+	}
+
+	func didUpdate(on conn: SQLiteConnection) throws -> EventLoopFuture<Match> {
+		NotificationCenter.default.post(name: NSNotification.Name.Match.DidUpdate, object: self)
+		return conn.future(self)
 	}
 }
 

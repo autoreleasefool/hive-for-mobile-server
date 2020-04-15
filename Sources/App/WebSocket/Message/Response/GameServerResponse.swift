@@ -1,5 +1,5 @@
 //
-//  WSServerResponse.swift
+//  GameServerResponse.swift
 //  Hive-for-iOS-server
 //
 //  Created by Joseph Roque on 2020-04-04.
@@ -9,7 +9,7 @@
 import Vapor
 import HiveEngine
 
-enum WSServerResponse {
+enum GameServerResponse {
 	case state(GameState)
 	case setOption(GameState.Option, Bool)
 	case setPlayerReady(User.ID, Bool)
@@ -20,7 +20,7 @@ enum WSServerResponse {
 }
 
 extension WebSocket {
-	func send(response: WSServerResponse) {
+	func send(response: GameServerResponse) {
 		switch response {
 		case .state(let state):
 			self.send("STATE \(state.gameString)")
@@ -39,7 +39,7 @@ extension WebSocket {
 		}
 	}
 
-	func send(error: WSServerResponseError, fromUser: User.ID?) {
+	func send(error: GameServerResponseError, fromUser: User.ID?) {
 		self.send("ERR \(fromUser?.description ?? "null") \(error.errorCode) \(error.errorDescription)")
 	}
 }

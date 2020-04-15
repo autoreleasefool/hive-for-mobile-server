@@ -109,12 +109,12 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 extension Match {
 	func addOpponent(_ opponent: User.ID, on conn: DatabaseConnectable) -> Future<Match> {
 		self.opponentId = opponent
-		return self.save(on: conn)
+		return self.update(on: conn)
 	}
 
 	func removeOpponent(_ opponent: User.ID, on conn: DatabaseConnectable) -> Future<Match> {
 		self.opponentId = nil
-		return self.save(on: conn)
+		return self.update(on: conn)
 	}
 
 	func begin(on conn: DatabaseConnectable) throws -> Future<Match> {
@@ -131,7 +131,7 @@ extension Match {
 		#warning("TODO: get host and opponent's ELO")
 
 		status = .active
-		return self.save(on: conn)
+		return self.update(on: conn)
 	}
 
 	func end(winner: User.ID?, on conn: DatabaseConnectable) throws -> Future<Match> {
@@ -144,10 +144,8 @@ extension Match {
 		self.winner = winner
 
 		status = .ended
-		if #available(OSX 10.15, *) {
-			duration = createdAt?.distance(to: Date())
-		}
-		return self.save(on: conn)
+		duration = createdAt?.distance(to: Date())
+		return self.update(on: conn)
 	}
 }
 

@@ -30,11 +30,11 @@ final class MatchMovement: SQLiteUUIDModel, Content, Migration {
 		\.createdAt
 	}
 
-	init(from: RelativeMovement, withContext context: WSClientMatchContext) {
-		self.matchId = context.matchId
-		self.userId = context.user
+	init(from: RelativeMovement, userId: User.ID, matchId: Match.ID, ordinal: Int) {
+		self.matchId = matchId
+		self.userId = userId
 		self.notation = from.notation
-		self.ordinal = context.state.move
+		self.ordinal = ordinal
 	}
 }
 

@@ -8,24 +8,26 @@
 
 import Vapor
 
-func RESTRoutes(_ router: Router) throws {
+let gameManager = GameManager()
+
+func routes(_ router: Router) throws {
 	router.get { _ in
 		"It works!"
 	}
 
 	let apiRouter = router.grouped("api")
 	try apiRouter.register(collection: UserController())
-	try apiRouter.register(collection: MatchController())
+	try apiRouter.register(collection: MatchController(gameManager: gameManager))
 }
 
-func webSocketRoutes(_ wss: NIOWebSocketServer) {
+func sockets(_ wss: NIOWebSocketServer) {
 	let responder = WebSocketResponder(
 		shouldUpgrade: { _ in return [:] },
 		onUpgrade: { ws, req in
 			WebSocketAuthenticationMiddleware.handle(
 				webSocket: ws,
 				request: req,
-				handler: LobbyController.shared.onJoinLobbyMatch
+				handler: gameManager.joinMatch
 			)
 		}
 	)

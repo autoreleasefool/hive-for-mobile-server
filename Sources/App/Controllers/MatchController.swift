@@ -12,11 +12,17 @@ import FluentSQLite
 import Crypto
 
 final class MatchController {
+	private let gameManager: GameManager
+
+	init(gameManager: GameManager) {
+		self.gameManager = gameManager
+	}
+
 	func create(_ request: Request) throws -> Future<CreateMatchResponse> {
 		let user = try request.requireAuthenticated(User.self)
 		let match = try Match(withHost: user)
 		return match.save(on: request)
-			.flatMap { try LobbyController.shared.open(match: $0, on: request) }
+			.flatMap { try self.gameManager.add($0, on: request) }
 			.map {  try CreateMatchResponse(from: $0) }
 	}
 
@@ -97,11 +103,7 @@ final class MatchController {
 		let user = try request.requireAuthenticated(User.self)
 		return try request.parameters.next(Match.self)
 			.flatMap { match in
-				try LobbyController.shared.add(
-					opponent: user.requireID(),
-					to: match.requireID(),
-					on: request
-				)
+				try self.gameManager.add(opponent: user.requireID(), to: match.requireID(), on: request)
 			}
 	}
 }

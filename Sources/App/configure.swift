@@ -18,12 +18,12 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 
 	// Register routes to the router
 	let router = EngineRouter.default()
-	try RESTRoutes(router)
+	try routes(router)
 	services.register(router, as: Router.self)
 
 	// Register WebSocket routes to the router
 	let wss = WebSocketContainer.createWebSocket()
-	webSocketRoutes(wss)
+	sockets(wss)
 	services.register(wss, as: WebSocketServer.self)
 
 	// Register middleware

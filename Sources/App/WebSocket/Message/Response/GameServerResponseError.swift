@@ -1,5 +1,5 @@
 //
-//  WSServerResponseError.swift
+//  GameServerResponseError.swift
 //  Hive-for-iOS-server
 //
 //  Created by Joseph Roque on 2020-04-04.
@@ -9,7 +9,7 @@
 import Foundation
 import HiveEngine
 
-enum WSServerResponseError: LocalizedError {
+enum GameServerResponseError: LocalizedError {
 	// Client errors
 	case invalidMovement(String)
 	case notPlayerTurn
@@ -45,6 +45,18 @@ enum WSServerResponseError: LocalizedError {
 			return #"Could not set "\#(option)" to "\#(value)""#
 		case .unknownError(let error):
 			return error.localizedDescription
+		}
+	}
+
+	var shouldSendToOpponent: Bool {
+		switch self {
+		case .invalidMovement,
+			.notPlayerTurn,
+			.invalidCommand,
+			.optionValueNotUpdated,
+			.optionNonModifiable,
+			.unknownError:
+			return false
 		}
 	}
 }

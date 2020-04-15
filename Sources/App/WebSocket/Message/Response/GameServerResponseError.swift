@@ -18,7 +18,7 @@ enum GameServerResponseError: LocalizedError {
 
 	// Server/state errors
 	case optionValueNotUpdated(GameState.Option, String)
-	case unknownError(Error)
+	case unknownError(Error?)
 
 	var errorCode: Int {
 		switch self {
@@ -34,17 +34,17 @@ enum GameServerResponseError: LocalizedError {
 	var errorDescription: String {
 		switch self {
 		case .invalidMovement(let move):
-			return #"Move "\#(move)" not valid"#
+			return #"Move "\#(move)" not valid."#
 		case .notPlayerTurn:
-			return "Not player turn"
+			return "It's not your turn."
 		case .optionNonModifiable:
-			return "Options cannot be modified"
+			return "You cannot modify game options at this time."
 		case .invalidCommand:
-			return "Invalid command"
+			return "Invalid command."
 		case .optionValueNotUpdated(let option, let value):
-			return #"Could not set "\#(option)" to "\#(value)""#
+			return #"Failed to set "\#(option)" to "\#(value)"."#
 		case .unknownError(let error):
-			return error.localizedDescription
+			return error?.localizedDescription ?? "Unknown error."
 		}
 	}
 

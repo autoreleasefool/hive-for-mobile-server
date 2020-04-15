@@ -128,7 +128,7 @@ final class GameManager {
 
 		self.sessions[matchId]?.add(context: wsContext, forUser: userId)
 
-		#warning("TODO: need to keep clients in sync when one disconnects or encounters error")
+		#warning("FIXME: need to keep clients in sync when one disconnects or encounters error")
 
 		ws.onText { [weak self] ws, text in
 			guard let session = self?.sessions[matchId] else {
@@ -248,12 +248,17 @@ extension GameManager {
 
 		session.game.togglePlayerReady(player: player)
 
-		let response = GameServerResponse.setPlayerReady(player, session.game.isPlayerReady(player: player))
-		session.host?.webSocket.send(response: response)
-		session.opponent?.webSocket.send(response: response)
+		let readyResponse = GameServerResponse.setPlayerReady(player, session.game.isPlayerReady(player: player))
+		session.host?.webSocket.send(response: readyResponse)
+		session.opponent?.webSocket.send(response: readyResponse)
 
 		if session.game.hostReady && session.game.opponentReady {
-			#warning("TODO: start the game")
+			let state = GameState(options: session.game.options)
+			session.game.state = state
+
+			let stateResponse = GameServerResponse.state(state)
+			session.host?.webSocket.send(response: stateResponse)
+			session.opponent?.webSocket.send(response: stateResponse)
 		}
 	}
 }

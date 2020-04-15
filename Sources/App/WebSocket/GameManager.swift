@@ -102,6 +102,17 @@ final class GameManager {
 		}
 	}
 
+	func updateOptions(
+		matchId: Match.ID,
+		options: Set<GameState.Option>,
+		on conn: DatabaseConnectable
+	) throws -> EventLoopFuture<HTTPResponseStatus> {
+		Match.find(matchId, on: conn)
+			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
+			.flatMap { $0.updateOptions(to: options, on: conn) }
+			.transform(to: .ok)
+	}
+
 	// MARK: WebSocket
 
 	func joinMatch(_ ws: WebSocket, _ request: Request, _ user: User) throws {
@@ -160,7 +171,7 @@ extension GameManager {
 	}
 
 	private func setOption(option: GameState.Option, to value: Bool, userId: User.ID, session: GameSession) {
-		guard !session.game.hasStarted else {
+		guard !session.game.hasStarted, let context = session.context(forUser: userId) else {
 			return handle(error: GameServerResponseError.invalidCommand, userId: userId, session: session)
 		}
 
@@ -171,7 +182,9 @@ extension GameManager {
 		session.game.options.set(option, to: value)
 		session.host?.webSocket.send(response: .setOption(option, value))
 		session.opponent?.webSocket.send(response: .setOption(option, value))
-		#warning("TODO: save options to DB")
+
+		#warning("TODO: handle error")
+		_ = try? updateOptions(matchId: session.game.id, options: session.game.options, on: context.request)
 	}
 
 	private func sendMessage(message: String, fromUser userId: User.ID, session: GameSession) {

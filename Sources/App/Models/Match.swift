@@ -147,6 +147,11 @@ extension Match {
 		duration = createdAt?.distance(to: Date())
 		return self.update(on: conn)
 	}
+
+	func updateOptions(to options: Set<GameState.Option>, on conn: DatabaseConnectable) -> Future<Match> {
+		self.options = GameState.Option.encode(options)
+		return self.update(on: conn)
+	}
 }
 
 // MARK: - Response

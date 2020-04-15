@@ -77,12 +77,14 @@ final class GameManager {
 	}
 
 	func delete(match matchId: Match.ID, on conn: DatabaseConnectable) throws -> EventLoopFuture<HTTPResponseStatus> {
-		#warning("TODO: delete matches")
-		return Future.map(on: conn) { .ok }
+		Match.find(matchId, on: conn)
+			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
+			.flatMap { $0.delete(on: conn) }
+			.transform(to: .ok)
 	}
 
 	func endMatch(context: WebSocketContext, session: GameSession) throws {
-		guard session.game.hasEnded, let state = session.game.state else {
+		guard session.game.hasEnded else {
 			throw Abort(.internalServerError, reason: #"Cannot end match "\#(session.game.id)" before game has ended"#)
 		}
 

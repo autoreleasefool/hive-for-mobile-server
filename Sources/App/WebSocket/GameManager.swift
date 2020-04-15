@@ -96,10 +96,10 @@ final class GameManager {
 			self?.sessions[session.game.id] = nil
 		}
 
-		endingMatch.whenFailure { [weak self] in
-			self?.handle(error: $0, userId: session.game.hostId, session: session)
+		endingMatch.whenFailure { [weak self] _ in
+			self?.handle(error: .unknownError(nil), userId: session.game.hostId, session: session)
 			if let opponent = session.game.opponentId {
-				self?.handle(error: $0, userId: opponent, session: session)
+				self?.handle(error: .unknownError(nil), userId: opponent, session: session)
 			}
 		}
 	}
@@ -151,7 +151,7 @@ final class GameManager {
 extension GameManager {
 	private func forfeit(userId: User.ID, session: GameSession) {
 		guard let context = session.context(forUser: userId) else {
-			return handle(error: GameServerResponseError.invalidCommand, userId: userId, session: session)
+			return handle(error: .invalidCommand, userId: userId, session: session)
 		}
 
 		if session.game.hasStarted {
@@ -160,33 +160,41 @@ extension GameManager {
 			if session.game.hostId == userId {
 				sessions[session.game.id] = nil
 				session.opponentContext(forUser: userId)?.webSocket.send(response: .playerLeft(userId))
-				#warning("TODO: handle error")
-				_ = try? delete(match: session.game.id, on: context.request)
+
+				do {
+					_ = try delete(match: session.game.id, on: context.request)
+				} catch {
+					handle(error: .unknownError(nil), userId: userId, session: session)
+				}
 			} else {
-				#warning("TODO: handle error")
-				_ = try? remove(opponent: userId, from: session.game.id, on: context.request)
-					.always {
-						session.host?.webSocket.send(response: .playerLeft(userId))
-					}
+				do {
+					_ = try remove(opponent: userId, from: session.game.id, on: context.request)
+						.always { session.host?.webSocket.send(response: .playerLeft(userId)) }
+				} catch {
+					handle(error: .unknownError(nil), userId: userId, session: session)
+				}
 			}
 		}
 	}
 
 	private func setOption(option: GameState.Option, to value: Bool, userId: User.ID, session: GameSession) {
 		guard !session.game.hasStarted, let context = session.context(forUser: userId) else {
-			return handle(error: GameServerResponseError.invalidCommand, userId: userId, session: session)
+			return handle(error: .invalidCommand, userId: userId, session: session)
 		}
 
 		guard userId == session.game.hostId else {
-			return handle(error: GameServerResponseError.optionNonModifiable, userId: userId, session: session)
+			return handle(error: .optionNonModifiable, userId: userId, session: session)
 		}
 
 		session.game.options.set(option, to: value)
 		session.host?.webSocket.send(response: .setOption(option, value))
 		session.opponent?.webSocket.send(response: .setOption(option, value))
 
-		#warning("TODO: handle error")
-		_ = try? updateOptions(matchId: session.game.id, options: session.game.options, on: context.request)
+		do {
+			_ = try updateOptions(matchId: session.game.id, options: session.game.options, on: context.request)
+		} catch {
+			handle(error: .optionValueNotUpdated(option, "\(value)"), userId: userId, session: session)
+		}
 	}
 
 	private func sendMessage(message: String, fromUser userId: User.ID, session: GameSession) {
@@ -198,16 +206,16 @@ extension GameManager {
 		guard session.game.hasStarted,
 			let state = session.game.state,
 			let context = session.context(forUser: userId) else {
-			return handle(error: GameServerResponseError.invalidCommand, userId: userId, session: session)
+			return handle(error: .invalidCommand, userId: userId, session: session)
 		}
 
 		guard session.game.isPlayerTurn(player: userId) else {
-			return handle(error: GameServerResponseError.notPlayerTurn, userId: userId, session: session)
+			return handle(error: .notPlayerTurn, userId: userId, session: session)
 		}
 
 		guard state.apply(relativeMovement: movement) else {
 			return handle(
-				error: GameServerResponseError.invalidMovement(movement.notation),
+				error: .invalidMovement(movement.notation),
 				userId: userId,
 				session: session
 			)
@@ -221,18 +229,21 @@ extension GameManager {
 			session.opponent?.webSocket.send(response: .state(state))
 		}
 
-		promise.whenFailure { [weak self] in
-			self?.handle(error: $0, userId: userId, session: session)
+		promise.whenFailure { [weak self] _ in
+			self?.handle(error: .unknownError(nil), userId: userId, session: session)
 		}
 
 		guard state.isEndGame else { return }
-		#warning("TODO: handle error")
-		try? endMatch(context: context, session: session)
+		do {
+			try endMatch(context: context, session: session)
+		} catch {
+			handle(error: .failedToEndMatch, userId: userId, session: session)
+		}
 	}
 
 	private func togglePlayerReady(player: User.ID, session: GameSession) {
 		guard !session.game.hasStarted, session.game.opponentId != nil else {
-			return handle(error: GameServerResponseError.invalidCommand, userId: player, session: session)
+			return handle(error: .invalidCommand, userId: player, session: session)
 		}
 
 		session.game.togglePlayerReady(player: player)
@@ -270,18 +281,18 @@ extension GameManager {
 			let message = try GameClientMessage(from: text)
 			handle(message: message, userId: userId, session: session)
 		} catch {
-			handle(error: error, userId: userId, session: session)
+			if let serverError = error as? GameServerResponseError {
+				handle(error: serverError, userId: userId, session: session)
+			} else {
+				handle(error: .unknownError(nil), userId: userId, session: session)
+			}
 		}
 	}
 
-	private func handle(error: Error, userId: User.ID, session: GameSession) {
-		if let serverError = error as? GameServerResponseError {
-			session.host?.webSocket.send(error: serverError, fromUser: userId)
-			if serverError.shouldSendToOpponent {
-				session.opponent?.webSocket.send(error: serverError, fromUser: userId)
-			}
-		} else {
-			session.host?.webSocket.send(error: GameServerResponseError.unknownError(error), fromUser: userId)
+	private func handle(error: GameServerResponseError, userId: User.ID, session: GameSession) {
+		session.host?.webSocket.send(error: error, fromUser: userId)
+		if error.shouldSendToOpponent {
+			session.opponent?.webSocket.send(error: error, fromUser: userId)
 		}
 	}
 }

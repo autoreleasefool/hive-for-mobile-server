@@ -3,6 +3,9 @@ import PackageDescription
 
 let package = Package(
     name: "hive-for-ios-server",
+	platforms: [
+		.macOS(.v10_15),
+	],
     products: [
         .library(name: "hive-for-ios-server", targets: ["App"]),
     ],

@@ -88,20 +88,35 @@ final class GameManager {
 			throw Abort(.internalServerError, reason: #"Cannot end match "\#(session.game.id)" before game has ended"#)
 		}
 
-		let endingMatch = Match.find(session.game.id, on: context.request)
+		sessions[session.game.id] = nil
+
+		Match.find(session.game.id, on: context.request)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
 			.flatMap { try $0.end(winner: session.game.winner, on: context.request) }
-
-		endingMatch.whenSuccess { [weak self] _ in
-			self?.sessions[session.game.id] = nil
-		}
-
-		endingMatch.whenFailure { [weak self] _ in
-			self?.handle(error: .unknownError(nil), userId: session.game.hostId, session: session)
-			if let opponent = session.game.opponentId {
-				self?.handle(error: .unknownError(nil), userId: opponent, session: session)
+			.whenFailure { [weak self] _ in
+				self?.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
+				if let opponent = session.game.opponentId {
+					self?.handle(error: .failedToEndMatch, userId: opponent, session: session)
+				}
 			}
+	}
+
+	func forfeitMatch(winner: User.ID, context: WebSocketContext, session: GameSession) throws {
+		guard session.game.hasStarted else {
+			throw Abort(.internalServerError, reason: #"Cannot end match "\#(session.game.id)" before game has ended"#)
 		}
+
+		sessions[session.game.id] = nil
+
+		Match.find(session.game.id, on: context.request)
+			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
+			.flatMap { try $0.end(winner: winner, on: context.request) }
+			.whenFailure { [weak self] _ in
+				self?.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
+				if let opponent = session.game.opponentId {
+					self?.handle(error: .failedToEndMatch, userId: opponent, session: session)
+				}
+			}
 	}
 
 	func updateOptions(
@@ -155,7 +170,18 @@ extension GameManager {
 		}
 
 		if session.game.hasStarted {
-			#warning("TODO: forfeit game that has started")
+			guard let winner = session.game.opponent(for: userId) else {
+				return handle(error: .invalidCommand, userId: userId, session: session)
+			}
+
+			session.host?.webSocket.send(response: .forfeit(userId))
+			session.opponent?.webSocket.send(response: .forfeit(userId))
+
+			do {
+				_ = try forfeitMatch(winner: winner, context: context, session: session)
+			} catch {
+				handle(error: .unknownError(nil), userId: userId, session: session)
+			}
 		} else {
 			if session.game.hostId == userId {
 				sessions[session.game.id] = nil

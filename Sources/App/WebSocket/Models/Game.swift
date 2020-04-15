@@ -87,6 +87,14 @@ class Game {
 		default: return false
 		}
 	}
+
+	func opponent(for userId: User.ID) -> User.ID? {
+		switch userId {
+		case hostId: return opponentId
+		case opponentId: return hostId
+		default: return nil
+		}
+	}
 }
 
 struct WebSocketContext {

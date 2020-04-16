@@ -8,7 +8,7 @@ For more information on the API, see [API.md](./API.md)
 
 ## Getttng Started
 
-1. Open `hive-for-ios-server.xcodeproj` in Xcode
+1. Open `Hive-for-iOS-Server.xcodeproj` in Xcode
 2. Select the `Run` scheme and choose the destination `My Mac`
 3. Run the server
 4. The app will be available at `localhost:8080`

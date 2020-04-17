@@ -253,6 +253,10 @@ extension GameManager {
 		promise.whenSuccess { _ in
 			session.host?.webSocket.send(response: .state(state))
 			session.opponent?.webSocket.send(response: .state(state))
+			if state.isEndGame {
+				session.host?.webSocket.send(response: .gameOver(session.game.winner))
+				session.opponent?.webSocket.send(response: .gameOver(session.game.winner))
+			}
 		}
 
 		promise.whenFailure { [weak self] _ in

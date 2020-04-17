@@ -11,6 +11,7 @@ import HiveEngine
 
 enum GameServerResponse {
 	case state(GameState)
+	case gameOver(User.ID?)
 	case setOption(GameState.Option, Bool)
 	case setPlayerReady(User.ID, Bool)
 	case message(User.ID, String)
@@ -24,6 +25,9 @@ extension WebSocket {
 		switch response {
 		case .state(let state):
 			self.send("STATE \(state.gameString)")
+		case .gameOver(let userId):
+			let winner = userId?.description ?? "null"
+			self.send("WINNER \(winner)")
 		case .setOption(let option, let value):
 			self.send("SET \(option) \(value)")
 		case .setPlayerReady(let userId, let isReady):

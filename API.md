@@ -291,6 +291,8 @@ In response to your commands, or in response to the commands of other users in t
 
 **STATE _gameStateString_**: The current state of the game. See the [Hive Engine](https://github.com/josephroquedev/hive-engine) for the format of this String.
 
+**WINNER _userId_**: The game has ended and the winner has been determined. The winner is either `userId` or `null` if the game ended in a tie.
+
 **SET _option_ _value_**: Set the value of an option _option_ to _value_. See the [Hive Engine](https://github.com/josephroquedev/hive-engine) for a list of options that are available.
 
 **READY _userID_ _isReady_**: Indicate that a player is ready or not.

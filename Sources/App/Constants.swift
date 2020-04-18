@@ -14,7 +14,7 @@ enum Constants {
 
 public enum Env {
 	private(set) static var baseURL = URL(string: "https://localhost:8080")!
-	private(set) static var socketURL = URL(string: "ws://localhost:8080")!
+	private(set) static var socketURL = URL(string: "wss://localhost:8080")!
 
 	static func load() {
 		guard let envFile = URL(string: "file://\(FileManager.default.currentDirectoryPath)")?

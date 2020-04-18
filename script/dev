@@ -24,7 +24,7 @@ FST=${FST//http\:\/\/}
 sleep 1s
 LNK_HTTPS=$FST
 LNK_HTTPS=${LNK_HTTPS//\//\\\/}
-LNK_WS=${LNK_HTTPS/https/ws}
+LNK_WS=${LNK_HTTPS/https/wss}
 echo $LNK_HTTPS
 
 sed -i '' "s/BASE_URL=.*/BASE_URL=$LNK_HTTPS/g" ./.env

@@ -46,10 +46,16 @@ final class GameManager {
 		return Match.find(matchId, on: conn)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
 			.flatMap { $0.addOpponent(opponent, on: conn) }
-			.map { [weak self] in
+			.flatMap {
+				#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
+				User.find(session.game.hostId, on: conn)
+					.unwrap(or: Abort(.internalServerError, reason: "Cannot find user with ID \(session.game.hostId)"))
+					.and(result: $0)
+			}
+			.map { [weak self] user, match in
 				self?.sessions[matchId]?.game.opponentId = opponent
 				self?.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponent))
-				return try JoinMatchResponse(from: $0)
+				return try JoinMatchResponse(from: match, withHost: user)
 			}
 	}
 

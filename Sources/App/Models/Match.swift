@@ -161,10 +161,12 @@ struct CreateMatchResponse: Content {
 	let socketUrl: URL
 	let details: MatchDetailsResponse
 
-	init(from match: Match) throws {
+	init(from match: Match, withHost host: User) throws {
 		self.id = try match.requireID()
 		self.socketUrl = try match.generateSocketUrl()
-		self.details = try MatchDetailsResponse(from: match)
+		var details = try MatchDetailsResponse(from: match)
+		details.host = try UserSummaryResponse(from: host)
+		self.details = details
 	}
 }
 

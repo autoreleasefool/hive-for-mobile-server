@@ -23,7 +23,7 @@ final class MatchController {
 		let match = try Match(withHost: user)
 		return match.save(on: request)
 			.flatMap { try self.gameManager.add($0, on: request) }
-			.map {  try CreateMatchResponse(from: $0) }
+			.map {  try CreateMatchResponse(from: $0, withHost: user) }
 	}
 
 	func details(_ request: Request) throws -> Future<MatchDetailsResponse> {

@@ -43,11 +43,11 @@ final class GameManager {
 			throw Abort(.badRequest, reason: "Cannot join a match you are hosting")
 		}
 
+		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
 		return Match.find(matchId, on: conn)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
 			.flatMap { $0.addOpponent(opponent, on: conn) }
 			.flatMap {
-				#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
 				User.find(session.game.hostId, on: conn)
 					.unwrap(or: Abort(.internalServerError, reason: "Cannot find user with ID \(session.game.hostId)"))
 					.and(result: $0)

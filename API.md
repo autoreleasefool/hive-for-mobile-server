@@ -154,44 +154,40 @@
 ```
 {
 	"id": "SomeMatchID",
-	"socketUrl": "ws://example.com",
-	"details": {
-		"id": "SomeMatchID",
-		"hostElo": 1000.0,
-		"opponentElo": 1000.0,
-		"hostIsWhite": false,
-		"options": "LadyBug;Mosquito;NoFirstMoveQueen",
-		"createdAt": "2020-03-30T00:00:00.000Z"
-		"duration": null,
-		"status": "notStarted",
-		"isAsyncPlay": false,
-		"isComplete": false,
-		"host": {
-			"id": "SomeUserID",
-			"displayName": "chosenUsername",
-			"elo": 1000.0,
-			"avatarUrl": "https://example.com/image.png",
+	"hostElo": 1000.0,
+	"opponentElo": 1000.0,
+	"hostIsWhite": false,
+	"options": "LadyBug;Mosquito;NoFirstMoveQueen",
+	"createdAt": "2020-03-30T00:00:00.000Z"
+	"duration": null,
+	"status": "notStarted",
+	"isAsyncPlay": false,
+	"isComplete": false,
+	"host": {
+		"id": "SomeUserID",
+		"displayName": "chosenUsername",
+		"elo": 1000.0,
+		"avatarUrl": "https://example.com/image.png",
+	},
+	"opponent": {
+		"id": "SomeUserID2",
+		"displayName": "chosenUsername2",
+		"elo": 1000.0,
+		"avatarUrl": "https://example.com/image.png",
+	},
+	"winner": null,
+	"moves": [
+		{
+			"id": "SomeMovementID",
+			"notation": "wQ",
+			"ordinal": 1
 		},
-		"opponent": {
-			"id": "SomeUserID2",
-			"displayName": "chosenUsername2",
-			"elo": 1000.0,
-			"avatarUrl": "https://example.com/image.png",
-		},
-		"winner": null,
-		"moves": [
-			{
-				"id": "SomeMovementID",
-				"notation": "wQ",
-				"ordinal": 1
-			},
-			{
-				"id": "SomeMovementID2",
-				"notation": "bQ -wQ",
-				"ordinal": 2
-			}
-		],
-	}
+		{
+			"id": "SomeMovementID2",
+			"notation": "bQ -wQ",
+			"ordinal": 2
+		}
+	],
 }
 ```
 </details>
@@ -203,33 +199,29 @@
 ```
 {
 	"id": "SomeMatchID",
-	"socketUrl": "ws://example.com",
-	"details": {
-		"id": "SomeMatchID",
-		"hostElo": 1000.0,
-		"opponentElo": 1000.0,
-		"hostIsWhite": false,
-		"options": "LadyBug;Mosquito;NoFirstMoveQueen",
-		"createdAt": "2020-03-30T00:00:00.000Z"
-		"duration": null,
-		"status": "notStarted",
-		"isAsyncPlay": false,
-		"isComplete": false,
-		"host": {
-			"id": "SomeUserID",
-			"displayName": "chosenUsername",
-			"elo": 1000.0,
-			"avatarUrl": "https://example.com/image.png",
-		},
-		"opponent": {
-			"id": "SomeUserID2",
-			"displayName": "chosenUsername2",
-			"elo": 1000.0,
-			"avatarUrl": "https://example.com/image.png",
-		},
-		"winner": null,
-		"moves": [],
-	}
+	"hostElo": 1000.0,
+	"opponentElo": 1000.0,
+	"hostIsWhite": false,
+	"options": "LadyBug;Mosquito;NoFirstMoveQueen",
+	"createdAt": "2020-03-30T00:00:00.000Z"
+	"duration": null,
+	"status": "notStarted",
+	"isAsyncPlay": false,
+	"isComplete": false,
+	"host": {
+		"id": "SomeUserID",
+		"displayName": "chosenUsername",
+		"elo": 1000.0,
+		"avatarUrl": "https://example.com/image.png",
+	},
+	"opponent": {
+		"id": "SomeUserID2",
+		"displayName": "chosenUsername2",
+		"elo": 1000.0,
+		"avatarUrl": "https://example.com/image.png",
+	},
+	"winner": null,
+	"moves": [],
 }
 ```
 </details>
@@ -241,28 +233,24 @@
 ```
 {
 	"id": "SomeMatchID",
-	"socketUrl": "ws://example.com",
-	"details": {
-		"id": "SomeMatchID",
-		"hostElo": 1000.0,
-		"opponentElo": null,
-		"hostIsWhite": false,
-		"options": "LadyBug;Mosquito;NoFirstMoveQueen",
-		"createdAt": "2020-03-30T00:00:00.000Z"
-		"duration": null,
-		"status": "notStarted",
-		"isAsyncPlay": false,
-		"isComplete": false,
-		"host": {
-			"id": "SomeUserID",
-			"displayName": "chosenUsername",
-			"elo": 1000.0,
-			"avatarUrl": "https://example.com/image.png",
-		},
-		"opponent": null,
-		"winner": null,
-		"moves": [],
-	}
+	"hostElo": 1000.0,
+	"opponentElo": null,
+	"hostIsWhite": false,
+	"options": "LadyBug;Mosquito;NoFirstMoveQueen",
+	"createdAt": "2020-03-30T00:00:00.000Z"
+	"duration": null,
+	"status": "notStarted",
+	"isAsyncPlay": false,
+	"isComplete": false,
+	"host": {
+		"id": "SomeUserID",
+		"displayName": "chosenUsername",
+		"elo": 1000.0,
+		"avatarUrl": "https://example.com/image.png",
+	},
+	"opponent": null,
+	"winner": null,
+	"moves": [],
 }
 ```
 </details>

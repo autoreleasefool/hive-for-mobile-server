@@ -74,16 +74,6 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 		self.options = GameState.Option.encode(newState.options)
 	}
 
-	func generateSocketUrl() throws -> URL {
-		#if DEBUG
-		Env.load()
-		#endif
-
-		return try Env.socketURL
-			.appendingPathComponent("\(requireID())")
-			.appendingPathComponent("play")
-	}
-
 	func otherPlayer(from userId: User.ID) -> User.ID? {
 		if hostId == userId {
 			return opponentId
@@ -156,21 +146,8 @@ extension Match {
 
 // MARK: - Response
 
-struct CreateMatchResponse: Content {
-	let id: Match.ID
-	let socketUrl: URL
-	let details: MatchDetailsResponse
-
-	init(from match: Match, withHost host: User) throws {
-		self.id = try match.requireID()
-		self.socketUrl = try match.generateSocketUrl()
-		var details = try MatchDetailsResponse(from: match)
-		details.host = try UserSummaryResponse(from: host)
-		self.details = details
-	}
-}
-
-typealias JoinMatchResponse = CreateMatchResponse
+typealias CreateMatchResponse = MatchDetailsResponse
+typealias JoinMatchResponse = MatchDetailsResponse
 
 struct MatchDetailsResponse: Content {
 	let id: Match.ID
@@ -189,7 +166,7 @@ struct MatchDetailsResponse: Content {
 	var opponent: UserSummaryResponse?
 	var moves: [MatchMovementResponse] = []
 
-	init(from match: Match) throws {
+	init(from match: Match, withHost host: User? = nil) throws {
 		self.id = try match.requireID()
 		self.hostElo = match.hostElo
 		self.opponentElo = match.opponentElo
@@ -200,5 +177,9 @@ struct MatchDetailsResponse: Content {
 		self.status = match.status
 		self.isAsyncPlay = match.isAsyncPlay
 		self.isComplete = match.duration != nil
+
+		if let host = host {
+			self.host = try UserSummaryResponse(from: host)
+		}
 	}
 }

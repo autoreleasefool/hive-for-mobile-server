@@ -29,7 +29,7 @@ extension WebSocket {
 			let winner = userId?.description ?? "null"
 			self.send("WINNER \(winner)")
 		case .setOption(let option, let value):
-			self.send("SET \(option) \(value)")
+			self.send("SET \(option.rawValue) \(value)")
 		case .setPlayerReady(let userId, let isReady):
 			self.send("READY \(userId) \(isReady)")
 		case .message(let userId, let message):

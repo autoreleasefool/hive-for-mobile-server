@@ -30,9 +30,9 @@ enum GameClientMessage {
 			self = try .playMove(GameClientMessage.extractMovement(from: from))
 		} else if from.starts(with: "FF") {
 			self = .forfeit
+		} else {
+			throw GameServerResponseError.invalidCommand
 		}
-
-		throw GameServerResponseError.invalidCommand
 	}
 }
 

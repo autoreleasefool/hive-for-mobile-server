@@ -55,7 +55,7 @@ extension GameClientMessage {
 		guard let optionStart = string.firstIndex(of: " "),
 			let optionEnd = string.lastIndex(of: " "),
 			let option = GameState.Option(
-				rawValue: String(string[optionStart...optionEnd]).trimmingCharacters(in: .whitespaces)
+				rawValue: String(string[optionStart..<optionEnd]).trimmingCharacters(in: .whitespaces)
 			) else {
 			throw GameServerResponseError.invalidCommand
 		}

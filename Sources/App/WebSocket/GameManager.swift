@@ -35,7 +35,7 @@ final class GameManager {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
 		}
 
-		guard session.game.opponentId == nil else {
+		guard session.game.opponentId == nil || session.game.opponentId == opponent else {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
 		}
 

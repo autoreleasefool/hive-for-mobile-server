@@ -13,7 +13,7 @@ let package = Package(
 		.package(name: "Auth", url: "https://github.com/vapor/auth.git", from: "2.0.4"),
 		.package(name: "Vapor", url: "https://github.com/vapor/vapor.git", from: "3.3.1"),
 		.package(name: "FluentSQLite", url: "https://github.com/vapor/fluent-sqlite.git", from: "3.0.0"),
-		.package(name: "HiveEngine", url: "https://github.com/josephroquedev/hive-engine.git", from: "2.5.1"),
+		.package(name: "HiveEngine", url: "https://github.com/josephroquedev/hive-engine.git", from: "3.0.0"),
 	],
 	targets: [
 		.target(

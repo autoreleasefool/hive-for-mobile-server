@@ -8,6 +8,7 @@
 import Vapor
 import Combine
 import HiveEngine
+import Fluent
 
 final class GameManager {
 	private var sessions: [Match.ID: GameSession] = [:]
@@ -27,7 +28,7 @@ final class GameManager {
 	}
 
 	func add(
-		opponent: User.ID,
+		opponent opponentId: User.ID,
 		to matchId: Match.ID,
 		on conn: DatabaseConnectable
 	) throws -> EventLoopFuture<JoinMatchResponse> {
@@ -35,27 +36,36 @@ final class GameManager {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
 		}
 
-		guard session.game.opponentId == nil || session.game.opponentId == opponent else {
+		guard session.game.opponentId == nil || session.game.opponentId == opponentId else {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
 		}
 
-		guard session.game.hostId != opponent else {
+		guard session.game.hostId != opponentId else {
 			throw Abort(.badRequest, reason: "Cannot join a match you are hosting")
 		}
 
 		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
 		return Match.find(matchId, on: conn)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
-			.flatMap { $0.addOpponent(opponent, on: conn) }
+			.flatMap { $0.addOpponent(opponentId, on: conn) }
 			.flatMap {
-				User.find(session.game.hostId, on: conn)
-					.unwrap(or: Abort(.internalServerError, reason: "Cannot find user with ID \(session.game.hostId)"))
+				User.query(on: conn)
+					.filter(\.id ~~ [session.game.hostId, opponentId])
+					.all()
 					.and(result: $0)
 			}
-			.map { [weak self] user, match in
-				self?.sessions[matchId]?.game.opponentId = opponent
-				self?.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponent))
-				return try JoinMatchResponse(from: match, withHost: user)
+			.map { [weak self] users, match in
+				guard let host = users.first(where: { $0.id == session.game.hostId }),
+					let opponent = users.first(where: { $0.id == opponentId }) else {
+						throw Abort(
+							.badRequest,
+							reason: "Could not find all users (\(session.game.hostId), \(opponentId))"
+						)
+				}
+
+				self?.sessions[matchId]?.game.opponentId = opponentId
+				self?.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponentId))
+				return try JoinMatchResponse(from: match, withHost: host, withOpponent: opponent)
 			}
 	}
 

@@ -166,7 +166,7 @@ struct MatchDetailsResponse: Content {
 	var opponent: UserSummaryResponse?
 	var moves: [MatchMovementResponse] = []
 
-	init(from match: Match, withHost host: User? = nil) throws {
+	init(from match: Match, withHost host: User? = nil, withOpponent opponent: User? = nil) throws {
 		self.id = try match.requireID()
 		self.hostElo = match.hostElo
 		self.opponentElo = match.opponentElo
@@ -180,6 +180,9 @@ struct MatchDetailsResponse: Content {
 
 		if let host = host {
 			self.host = try UserSummaryResponse(from: host)
+		}
+		if let opponent = opponent {
+			self.opponent = try UserSummaryResponse(from: opponent)
 		}
 	}
 }

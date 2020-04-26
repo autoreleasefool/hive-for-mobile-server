@@ -57,8 +57,6 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 
 	/// Status of the game, if it has begun or ended
 	private(set) var status: MatchStatus
-	/// `true` if the game is being played asynchronously turn based.
-	private(set) var isAsyncPlay: Bool
 
 	static var createdAtKey: TimestampKey? {
 		\.createdAt
@@ -67,7 +65,6 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	init(withHost host: User) throws {
 		self.hostId = try host.requireID()
 		self.status = .notStarted
-		self.isAsyncPlay = false
 
 		self.options = OptionSet.encode(Match.Option.defaultSet)
 		self.gameOptions = OptionSet.encode(GameState().options)
@@ -102,6 +99,7 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 extension Match {
 	enum Option: String, CaseIterable {
 		case hostIsWhite = "HostIsWhite"
+		case asyncPlay = "AsyncPlay"
 
 		static var defaultSet: Set<Match.Option> {
 			Set([.hostIsWhite])
@@ -178,7 +176,6 @@ struct MatchDetailsResponse: Content {
 	let createdAt: Date?
 	let duration: TimeInterval?
 	let status: MatchStatus
-	let isAsyncPlay: Bool
 	let isComplete: Bool
 
 	var host: UserSummaryResponse?
@@ -195,7 +192,6 @@ struct MatchDetailsResponse: Content {
 		self.createdAt = match.createdAt
 		self.duration = match.duration
 		self.status = match.status
-		self.isAsyncPlay = match.isAsyncPlay
 		self.isComplete = match.duration != nil
 
 		if let host = host {

@@ -17,7 +17,7 @@ enum GameServerResponseError: LocalizedError {
 	case invalidCommand
 
 	// Server/state errors
-	case optionValueNotUpdated(GameState.Option, String)
+	case optionValueNotUpdated(GameServerResponse.Option, String)
 	case failedToEndMatch
 
 	// Other errors
@@ -46,7 +46,7 @@ enum GameServerResponseError: LocalizedError {
 		case .invalidCommand:
 			return "Invalid command."
 		case .optionValueNotUpdated(let option, let value):
-			return #"Failed to set "\#(option)" to "\#(value)"."#
+			return #"Failed to set "\#(option.optionName)" to "\#(value)"."#
 		case .failedToEndMatch:
 			return "The match is over, but an error occurred."
 		case .unknownError(let error):

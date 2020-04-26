@@ -42,12 +42,12 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	/// ELO of the opponent at the start of the game
 	private(set) var opponentElo: Double?
 
-	/// `true` if the host is White, `false` if the host is Black
-	private(set) var hostIsWhite: Bool
 	/// ID of the winner of the game. `nil` for a tie
 	private(set) var winner: User.ID?
 
-	/// Options that were used in the game
+	/// GameState options that were used in the game
+	private(set) var gameOptions: String
+	/// Options used in the game
 	private(set) var options: String
 
 	/// Date that the game was started at
@@ -66,12 +66,11 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 
 	init(withHost host: User) throws {
 		self.hostId = try host.requireID()
-		self.hostIsWhite = true
 		self.status = .notStarted
 		self.isAsyncPlay = false
 
-		let newState = GameState()
-		self.options = GameState.Option.encode(newState.options)
+		self.options = OptionSet.encode(Match.Option.defaultSet)
+		self.gameOptions = OptionSet.encode(GameState().options)
 	}
 
 	func otherPlayer(from userId: User.ID) -> User.ID? {
@@ -84,13 +83,29 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 		return nil
 	}
 
-	var gameOptions: Set<GameState.Option> {
-		GameState.Option.parse(self.options)
+	var gameOptionSet: Set<GameState.Option> {
+		OptionSet.parse(self.gameOptions)
+	}
+
+	var optionSet: Set<Match.Option> {
+		OptionSet.parse(self.options)
 	}
 
 	func didUpdate(on conn: SQLiteConnection) throws -> EventLoopFuture<Match> {
 		NotificationCenter.default.post(name: NSNotification.Name.Match.DidUpdate, object: self)
 		return conn.future(self)
+	}
+}
+
+// MARK: Options
+
+extension Match {
+	enum Option: String, CaseIterable {
+		case hostIsWhite = "HostIsWhite"
+
+		static var defaultSet: Set<Match.Option> {
+			Set([.hostIsWhite])
+		}
 	}
 }
 
@@ -138,8 +153,13 @@ extension Match {
 		return self.update(on: conn)
 	}
 
-	func updateOptions(to options: Set<GameState.Option>, on conn: DatabaseConnectable) -> Future<Match> {
-		self.options = GameState.Option.encode(options)
+	func updateOptions(
+		options: Set<Match.Option>,
+		gameOptions: Set<GameState.Option>,
+		on conn: DatabaseConnectable
+	) -> Future<Match> {
+		self.options = OptionSet.encode(options)
+		self.gameOptions = OptionSet.encode(gameOptions)
 		return self.update(on: conn)
 	}
 }
@@ -153,8 +173,8 @@ struct MatchDetailsResponse: Content {
 	let id: Match.ID
 	let hostElo: Double?
 	let opponentElo: Double?
-	let hostIsWhite: Bool
 	let options: String
+	let gameOptions: String
 	let createdAt: Date?
 	let duration: TimeInterval?
 	let status: MatchStatus
@@ -170,8 +190,8 @@ struct MatchDetailsResponse: Content {
 		self.id = try match.requireID()
 		self.hostElo = match.hostElo
 		self.opponentElo = match.opponentElo
-		self.hostIsWhite = match.hostIsWhite
 		self.options = match.options
+		self.gameOptions = match.gameOptions
 		self.createdAt = match.createdAt
 		self.duration = match.duration
 		self.status = match.status

@@ -10,9 +10,21 @@ import Vapor
 import HiveEngine
 
 enum GameServerResponse {
+	enum Option {
+		case gameOption(GameState.Option)
+		case matchOption(Match.Option)
+
+		var optionName: String {
+			switch self {
+			case .gameOption(let option): return option.rawValue
+			case .matchOption(let option): return option.rawValue
+			}
+		}
+	}
+
 	case state(GameState)
 	case gameOver(User.ID?)
-	case setOption(GameState.Option, Bool)
+	case setOption(Option, Bool)
 	case setPlayerReady(User.ID, Bool)
 	case message(User.ID, String)
 	case forfeit(User.ID)
@@ -29,7 +41,7 @@ extension WebSocket {
 			let winner = userId?.description ?? "null"
 			self.send("WINNER \(winner)")
 		case .setOption(let option, let value):
-			self.send("SET \(option.rawValue) \(value)")
+			self.send("SET \(option.optionName) \(value)")
 		case .setPlayerReady(let userId, let isReady):
 			self.send("READY \(userId) \(isReady)")
 		case .message(let userId, let message):

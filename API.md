@@ -156,8 +156,8 @@
 	"id": "SomeMatchID",
 	"hostElo": 1000.0,
 	"opponentElo": 1000.0,
-	"hostIsWhite": false,
-	"options": "LadyBug;Mosquito;NoFirstMoveQueen",
+	"options": "HostIsWhite:false",
+	"gameOptions": "LadyBug:true;Mosquito:true;NoFirstMoveQueen:false",
 	"createdAt": "2020-03-30T00:00:00.000Z"
 	"duration": null,
 	"status": "notStarted",
@@ -201,8 +201,8 @@
 	"id": "SomeMatchID",
 	"hostElo": 1000.0,
 	"opponentElo": 1000.0,
-	"hostIsWhite": false,
-	"options": "LadyBug;Mosquito;NoFirstMoveQueen",
+	"options": "HostIsWhite:false",
+	"gameOptions": "LadyBug:true;Mosquito:true;NoFirstMoveQueen:false",
 	"createdAt": "2020-03-30T00:00:00.000Z"
 	"duration": null,
 	"status": "notStarted",
@@ -235,8 +235,8 @@
 	"id": "SomeMatchID",
 	"hostElo": 1000.0,
 	"opponentElo": null,
-	"hostIsWhite": false,
-	"options": "LadyBug;Mosquito;NoFirstMoveQueen",
+	"options": "HostIsWhite:false",
+	"gameOptions": "LadyBug:true;Mosquito:true;NoFirstMoveQueen:false",
 	"createdAt": "2020-03-30T00:00:00.000Z"
 	"duration": null,
 	"status": "notStarted",
@@ -263,7 +263,7 @@ Endpoint: `<SERVER_URL>/matchID/play`
 
 Once connected to a WebSocket, you can send commands of the following formats:
 
-**SET _option_ _value_**: Set the value of an option _option_ to _value_. See the [Hive Engine](https://github.com/josephroquedev/hive-engine) for a list of options that are available.
+**SET _option_ _value_**: Set the value of an option _option_ to _value_. See the [Match options](/Sources/App/Models/Match.swift) and the [Hive Engine](https://github.com/josephroquedev/hive-engine) for a list of options that are available.
 
 **MSG _message_**: Send a message _message_ to your opponent.
 
@@ -281,7 +281,7 @@ In response to your commands, or in response to the commands of other users in t
 
 **WINNER _userId_**: The game has ended and the winner has been determined. The winner is either `userId` or `null` if the game ended in a tie.
 
-**SET _option_ _value_**: Set the value of an option _option_ to _value_. See the [Hive Engine](https://github.com/josephroquedev/hive-engine) for a list of options that are available.
+**SET _option_ _value_**: Set the value of an option _option_ to _value_. See the [Match options](/Sources/App/Models/Match.swift) and the [Hive Engine](https://github.com/josephroquedev/hive-engine) for a list of options that are available.
 
 **READY _userID_ _isReady_**: Indicate that a player is ready or not.
 

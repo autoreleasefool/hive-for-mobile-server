@@ -137,12 +137,13 @@ final class GameManager {
 
 	func updateOptions(
 		matchId: Match.ID,
-		options: Set<GameState.Option>,
+		options: Set<Match.Option>,
+		gameOptions: Set<GameState.Option>,
 		on conn: DatabaseConnectable
 	) throws -> EventLoopFuture<HTTPResponseStatus> {
 		Match.find(matchId, on: conn)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
-			.flatMap { $0.updateOptions(to: options, on: conn) }
+			.flatMap { $0.updateOptions(options: options, gameOptions: gameOptions, on: conn) }
 			.transform(to: .ok)
 	}
 
@@ -218,7 +219,7 @@ extension GameManager {
 		}
 	}
 
-	private func setOption(option: GameState.Option, to value: Bool, userId: User.ID, session: GameSession) {
+	private func setOption(option: GameClientMessage.Option, to value: Bool, userId: User.ID, session: GameSession) {
 		guard !session.game.hasStarted, let context = session.context(forUser: userId) else {
 			return handle(error: .invalidCommand, userId: userId, session: session)
 		}
@@ -227,14 +228,19 @@ extension GameManager {
 			return handle(error: .optionNonModifiable, userId: userId, session: session)
 		}
 
-		session.game.options.set(option, to: value)
-		session.host?.webSocket.send(response: .setOption(option, value))
-		session.opponent?.webSocket.send(response: .setOption(option, value))
+		session.game.setOption(option, to: value)
+		session.host?.webSocket.send(response: .setOption(option.asServerOption, value))
+		session.opponent?.webSocket.send(response: .setOption(option.asServerOption, value))
 
 		do {
-			_ = try updateOptions(matchId: session.game.id, options: session.game.options, on: context.request)
+			_ = try updateOptions(
+				matchId: session.game.id,
+				options: session.game.options,
+				gameOptions: session.game.gameOptions,
+				on: context.request
+			)
 		} catch {
-			handle(error: .optionValueNotUpdated(option, "\(value)"), userId: userId, session: session)
+			handle(error: .optionValueNotUpdated(option.asServerOption, "\(value)"), userId: userId, session: session)
 		}
 	}
 
@@ -298,7 +304,7 @@ extension GameManager {
 		session.opponent?.webSocket.send(response: readyResponse)
 
 		if session.game.hostReady && session.game.opponentReady {
-			let state = GameState(options: session.game.options)
+			let state = GameState(options: session.game.gameOptions)
 			session.game.state = state
 
 			let stateResponse = GameServerResponse.state(state)

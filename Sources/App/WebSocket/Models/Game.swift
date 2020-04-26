@@ -15,8 +15,8 @@ class Game {
 
 	var hostReady: Bool = false
 	var opponentReady: Bool = false
-	var hostIsWhite: Bool
-	var options: Set<GameState.Option>
+	var gameOptions: Set<GameState.Option>
+	var options: Set<Match.Option>
 
 	var state: GameState?
 
@@ -35,18 +35,18 @@ class Game {
 		}
 
 		switch winner.first {
-		case .white: return hostIsWhite ? hostId : opponentId
-		case .black: return hostIsWhite ? opponentId : hostId
+		case .white: return options.contains(.hostIsWhite) ? hostId : opponentId
+		case .black: return options.contains(.hostIsWhite) ? opponentId : hostId
 		case .none: return nil
 		}
 	}
 
-	init(id: Match.ID, hostId: User.ID, opponentId: User.ID? = nil, hostIsWhite: Bool, options: String) {
+	init(id: Match.ID, hostId: User.ID, opponentId: User.ID? = nil, options: String, gameOptions: String) {
 		self.id = id
 		self.hostId = hostId
 		self.opponentId = opponentId
-		self.hostIsWhite = hostIsWhite
-		self.options = GameState.Option.parse(options)
+		self.options = OptionSet.parse(options)
+		self.gameOptions = OptionSet.parse(gameOptions)
 	}
 
 	convenience init?(match: Match) {
@@ -55,8 +55,8 @@ class Game {
 			id: id,
 			hostId: match.hostId,
 			opponentId: match.opponentId,
-			hostIsWhite: match.hostIsWhite,
-			options: match.options
+			options: match.options,
+			gameOptions: match.gameOptions
 		)
 	}
 
@@ -78,10 +78,10 @@ class Game {
 
 	func isPlayerTurn(player: User.ID) -> Bool {
 		switch player {
-		case hostId: return hostIsWhite
+		case hostId: return options.contains(.hostIsWhite)
 			? state?.currentPlayer == .white
 			: state?.currentPlayer == .black
-		case opponentId: return hostIsWhite
+		case opponentId: return options.contains(.hostIsWhite)
 			? state?.currentPlayer == .black
 			: state?.currentPlayer == .white
 		default: return false
@@ -93,6 +93,15 @@ class Game {
 		case hostId: return opponentId
 		case opponentId: return hostId
 		default: return nil
+		}
+	}
+
+	func setOption(_ option: GameClientMessage.Option, to value: Bool) {
+		switch option {
+		case .gameOption(let option):
+			gameOptions.set(option, to: value)
+		case .matchOption(let option):
+			options.set(option, to: value)
 		}
 	}
 }

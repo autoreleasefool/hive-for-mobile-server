@@ -211,7 +211,6 @@ extension GameManager {
 			} else {
 				do {
 					_ = try remove(opponent: userId, from: session.game.id, on: context.request)
-						.always { session.host?.webSocket.send(response: .playerLeft(userId)) }
 				} catch {
 					handle(error: .unknownError(nil), userId: userId, session: session)
 				}

@@ -61,7 +61,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 	UserToken.defaultDatabase = .sqlite
 	migrations.add(model: UserToken.self, database: UserToken.defaultDatabase!)
 
-//	migrations.add(migration: Populate.self, database: .sqlite)
+	migrations.add(migration: Populate.self, database: .sqlite)
 
 	services.register(migrations)
 }

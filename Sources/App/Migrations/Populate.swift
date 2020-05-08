@@ -14,7 +14,7 @@ struct Populate: SQLiteMigration {
 	static func prepare(on conn: SQLiteConnection) -> Future<Void> {
 		_ = User(
 				id: nil,
-				email: "b@c.ca",
+				email: "a@a.ca",
 				password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
 				displayName: "Scott",
 				elo: 192,
@@ -25,7 +25,7 @@ struct Populate: SQLiteMigration {
 
 		_ = User(
 				id: nil,
-				email: "c@d.ca",
+				email: "b@b.ca",
 				password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
 				displayName: "Dann Beauregard",
 				elo: 1240,
@@ -34,26 +34,20 @@ struct Populate: SQLiteMigration {
 				isAdmin: true
 		).save(on: conn).transform(to: ())
 
-		let joseph = User(
+		return User(
 				id: UUID(uuidString: "60448917-d472-4099-b1c8-956935245d6e")!,
-				email: "a@b.ca",
+				email: "c@c.ca",
 				password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
 				displayName: "Joseph",
 				elo: 1000,
 				avatarUrl: "https://avatars1.githubusercontent.com/u/6619581?v=4",
 				isBot: false,
 				isAdmin: true
-		)
-
-		return joseph.save(on: conn)
-			.thenThrowing { result in
-				_ = try UserToken(forUser: result.requireID()).save(on: conn)
-				_ = try Match(withHost: result).save(on: conn)
-			}.transform(to: ())
+		).save(on: conn).transform(to: ())
 	}
 
 	static func revert(on conn: SQLiteConnection) -> Future<Void> {
-		let futures = ["a@b.ca", "b@c.ca", "c@d.ca"].map { email in
+		let futures = ["a@a.ca", "b@b.ca", "c@c.ca"].map { email in
 			return User.query(on: conn).filter(\User.email == email)
 				.delete()
 		}

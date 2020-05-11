@@ -63,7 +63,7 @@ extension User: Validatable {
 	static func validations() throws -> Validations<User> {
 		var validations = Validations(User.self)
 		try validations.add(\.email, .email)
-		try validations.add(\.displayName, .alphanumeric && .count(3...))
+		try validations.add(\.displayName, .alphanumeric && .count(3...24))
 		try validations.add(\.avatarUrl, .url || .nil)
 		return validations
 	}

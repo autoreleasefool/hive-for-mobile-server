@@ -174,6 +174,12 @@ final class GameManager {
 			}
 
 			self?.handle(text: text, userId: userId, session: session)
+
+			if let opponentId = session.game.opponent(for: userId), let state = session.game.state {
+				ws.send(response: .setPlayerReady(opponentId, true))
+				ws.send(response: .setPlayerReady(userId, true))
+				ws.send(response: .state(state))
+			}
 		}
 	}
 }

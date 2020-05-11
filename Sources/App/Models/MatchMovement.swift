@@ -76,9 +76,11 @@ struct MatchMovementResponse: Content {
 	let id: MatchMovement.ID
 	let notation: String
 	let ordinal: Int
+	let date: Date
 
 	init(from movement: MatchMovement) throws {
 		self.id = try movement.requireID()
+		self.date = movement.createdAt!
 		self.notation = movement.notation
 		self.ordinal = movement.ordinal
 	}

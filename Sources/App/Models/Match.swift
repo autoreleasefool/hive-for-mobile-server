@@ -7,6 +7,7 @@
 //
 
 import Vapor
+import Fluent
 import FluentSQLite
 import HiveEngine
 
@@ -127,14 +128,28 @@ extension Match {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to begin (\#(status))"#)
 		}
 
-		guard opponentId != nil else {
-			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent."#)
+		guard let opponentId = opponentId else {
+			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
 		}
 
-		#warning("TODO: get host and opponent's ELO")
+		return User.query(on: conn)
+			.filter(\.id ~~ [hostId, opponentId])
+			.all()
+			.flatMap { users in
+				guard let host = users.first(where: { $0.id == self.hostId }),
+					let opponent = users.first(where: { $0.id == opponentId }) else {
+						throw Abort(
+							.badRequest,
+							reason: "Could not find all users (\(self.hostId), \(opponentId))"
+						)
+				}
 
-		status = .active
-		return self.update(on: conn)
+				self.hostElo = host.elo
+				self.opponentElo = opponent.elo
+				self.status = .active
+
+				return self.update(on: conn)
+			}
 	}
 
 	func end(winner: User.ID?, on conn: DatabaseConnectable) throws -> Future<Match> {

@@ -117,6 +117,22 @@ final class GameManager {
 			}
 	}
 
+	func startMatch(context: WebSocketContext, session: GameSession) throws {
+		guard session.game.hasStarted else {
+			throw Abort(.internalServerError, reason: #"Cannot start match "\#(session.game.id)" that already started"#)
+		}
+
+		Match.find(session.game.id, on: context.request)
+			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
+			.flatMap { try $0.begin(on: context.request) }
+			.whenFailure { [weak self] _ in
+				self?.handle(error: .failedToStartMatch, userId: session.game.hostId, session: session)
+				if let opponent = session.game.opponentId {
+					self?.handle(error: .failedToStartMatch, userId: opponent, session: session)
+				}
+			}
+	}
+
 	func forfeitMatch(winner: User.ID, context: WebSocketContext, session: GameSession) throws {
 		guard session.game.hasStarted else {
 			throw Abort(.internalServerError, reason: #"Cannot end match "\#(session.game.id)" before game has ended"#)
@@ -299,7 +315,9 @@ extension GameManager {
 	}
 
 	private func togglePlayerReady(player: User.ID, session: GameSession) {
-		guard !session.game.hasStarted, session.game.opponentId != nil else {
+		guard !session.game.hasStarted,
+			session.game.opponentId != nil,
+			let context = session.context(forUser: player) else {
 			return handle(error: .invalidCommand, userId: player, session: session)
 		}
 
@@ -309,13 +327,20 @@ extension GameManager {
 		session.host?.webSocket.send(response: readyResponse)
 		session.opponent?.webSocket.send(response: readyResponse)
 
-		if session.game.hostReady && session.game.opponentReady {
-			let state = GameState(options: session.game.gameOptions)
-			session.game.state = state
+		guard session.game.hostReady && session.game.opponentReady else {
+			return
+		}
 
-			let stateResponse = GameServerResponse.state(state)
-			session.host?.webSocket.send(response: stateResponse)
-			session.opponent?.webSocket.send(response: stateResponse)
+		let state = GameState(options: session.game.gameOptions)
+		session.game.state = state
+
+		session.host?.webSocket.send(response: .state(state))
+		session.opponent?.webSocket.send(response: .state(state))
+
+		do {
+			try startMatch(context: context, session: session)
+		} catch {
+			handle(error: .unknownError(nil), userId: player, session: session)
 		}
 	}
 }

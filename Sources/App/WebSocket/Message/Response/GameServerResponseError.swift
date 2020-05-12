@@ -19,6 +19,7 @@ enum GameServerResponseError: LocalizedError {
 	// Server/state errors
 	case optionValueNotUpdated(GameServerResponse.Option, String)
 	case failedToEndMatch
+	case failedToStartMatch
 
 	// Other errors
 	case unknownError(Error?)
@@ -31,6 +32,7 @@ enum GameServerResponseError: LocalizedError {
 		case .invalidCommand:        return 199
 		case .optionValueNotUpdated: return 201
 		case .failedToEndMatch:      return 202
+		case .failedToStartMatch:    return 203
 		case .unknownError:          return 999
 		}
 	}
@@ -49,6 +51,8 @@ enum GameServerResponseError: LocalizedError {
 			return #"Failed to set "\#(option.optionName)" to "\#(value)"."#
 		case .failedToEndMatch:
 			return "The match is over, but an error occurred."
+		case .failedToStartMatch:
+			return "The game could not be started."
 		case .unknownError(let error):
 			return error?.localizedDescription ?? "Unknown error."
 		}
@@ -63,7 +67,8 @@ enum GameServerResponseError: LocalizedError {
 			.optionNonModifiable,
 			.unknownError:
 			return false
-		case .failedToEndMatch:
+		case .failedToEndMatch,
+			.failedToStartMatch:
 			return true
 		}
 	}

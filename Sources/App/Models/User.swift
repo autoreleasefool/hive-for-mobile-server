@@ -21,7 +21,7 @@ final class User: SQLiteUUIDModel, Content, Migration, Parameter {
 	private(set) var displayName: String
 
 	/// Calculated ELO of the user
-	private(set) var elo: Double
+	private(set) var elo: Int
 	/// Link to the user's avatar
 	private(set) var avatarUrl: String?
 	/// `true` if the user is a bot player
@@ -43,7 +43,7 @@ final class User: SQLiteUUIDModel, Content, Migration, Parameter {
 		email: String,
 		password: String,
 		displayName: String,
-		elo: Double,
+		elo: Int,
 		avatarUrl: String?,
 		isBot: Bool,
 		isAdmin: Bool
@@ -119,7 +119,7 @@ struct CreateUserResponse: Content {
 struct UserSummaryResponse: Content {
 	let id: User.ID
 	let displayName: String
-	let elo: Double
+	let elo: Int
 	let avatarUrl: String?
 
 	init(from user: User) throws {
@@ -138,7 +138,7 @@ struct UserSummaryResponse: Content {
 struct UserDetailsResponse: Content {
 	let id: User.ID
 	let displayName: String
-	let elo: Double
+	let elo: Int
 	let avatarUrl: String?
 	var activeMatches: [MatchDetailsResponse] = []
 	var pastMatches: [MatchDetailsResponse] = []
@@ -159,7 +159,7 @@ extension User {
 		let email: String?
 		let password: String?
 		let displayName: String?
-		let elo: Double?
+		let elo: Int?
 		let avatarUrl: String?
 		let isBot: Bool?
 		let isAdmin: Bool?

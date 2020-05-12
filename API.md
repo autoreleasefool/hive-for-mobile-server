@@ -165,13 +165,13 @@
 	"host": {
 		"id": "SomeUserID",
 		"displayName": "chosenUsername",
-		"elo": 1000.0,
+		"elo": 1000,
 		"avatarUrl": "https://example.com/image.png",
 	},
 	"opponent": {
 		"id": "SomeUserID2",
 		"displayName": "chosenUsername2",
-		"elo": 1000.0,
+		"elo": 1000,
 		"avatarUrl": "https://example.com/image.png",
 	},
 	"winner": null,
@@ -200,8 +200,8 @@
 ```
 {
 	"id": "SomeMatchID",
-	"hostElo": 1000.0,
-	"opponentElo": 1000.0,
+	"hostElo": 1000,
+	"opponentElo": 1000,
 	"options": "HostIsWhite:false;AsyncPlay:false",
 	"gameOptions": "LadyBug:true;Mosquito:true;NoFirstMoveQueen:false",
 	"createdAt": "2020-03-30T00:00:00.000Z"
@@ -233,7 +233,7 @@
 ```
 {
 	"id": "SomeMatchID",
-	"hostElo": 1000.0,
+	"hostElo": 1000,
 	"opponentElo": null,
 	"options": "HostIsWhite:false;AsyncPlay:false",
 	"gameOptions": "LadyBug:true;Mosquito:true;NoFirstMoveQueen:false",

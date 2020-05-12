@@ -38,9 +38,9 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	private(set) var opponentId: User.ID?
 
 	/// ELO of the host at the start of the game
-	private(set) var hostElo: Double?
+	private(set) var hostElo: Int?
 	/// ELO of the opponent at the start of the game
-	private(set) var opponentElo: Double?
+	private(set) var opponentElo: Int?
 
 	/// ID of the winner of the game. `nil` for a tie
 	private(set) var winner: User.ID?
@@ -169,8 +169,8 @@ typealias JoinMatchResponse = MatchDetailsResponse
 
 struct MatchDetailsResponse: Content {
 	let id: Match.ID
-	let hostElo: Double?
-	let opponentElo: Double?
+	let hostElo: Int?
+	let opponentElo: Int?
 	let options: String
 	let gameOptions: String
 	let createdAt: Date?

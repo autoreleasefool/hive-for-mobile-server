@@ -34,7 +34,7 @@ final class User: SQLiteUUIDModel, Content, Migration, Parameter {
 		self.email = email
 		self.password = password
 		self.displayName = displayName
-		self.elo = Elo.defaultValue
+		self.elo = Elo.Rating.default
 		self.isBot = false
 	}
 

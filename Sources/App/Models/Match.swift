@@ -159,11 +159,68 @@ extension Match {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to end (\#(status)"#)
 		}
 
-		self.winner = winner
+		guard let opponentId = opponentId else {
+			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
+		}
 
+		self.winner = winner
 		status = .ended
 		duration = createdAt?.distance(to: Date())
+
 		return self.update(on: conn)
+			.flatMap { _ in
+				User.query(on: conn)
+					.filter(\.id ~~ [self.hostId, opponentId])
+					.all()
+			}
+			.flatMap { users in
+				guard let host = users.first(where: { $0.id == self.hostId }),
+					let opponent = users.first(where: { $0.id == opponentId }) else {
+						throw Abort(
+							.badRequest,
+							reason: "Could not find all users (\(self.hostId), \(opponentId))"
+						)
+				}
+
+				// Update Elos and ignore any errors
+				return try self.resolveNewElos(
+					host: host,
+					opponent: opponent,
+					winner: winner,
+					on: conn
+				).mapIfError { _ in }
+			}
+			.mapIfError { _ in }
+			.map { self }
+	}
+
+	func resolveNewElos(
+		host: User,
+		opponent: User,
+		winner: User.ID?,
+		on conn: DatabaseConnectable
+	) -> Future<Void> {
+		guard let hostId = try? host.requireID() else {
+			print("Failed to find ID of host to resolve Elos")
+			return conn.eventLoop.newSucceededFuture(result: ())
+		}
+
+		let hostUpdate: EventLoopFuture<User>
+		let opponentUpdate: EventLoopFuture<User>
+		if winner == nil {
+			hostUpdate = host.recordDraw(againstPlayerRated: opponent.elo, on: conn)
+			opponentUpdate = opponent.recordDraw(againstPlayerRated: host.elo, on: conn)
+		} else if winner == hostId {
+			hostUpdate = host.recordWin(againstPlayerRated: opponent.elo, on: conn)
+			opponentUpdate = opponent.recordLoss(againstPlayerRated: host.elo, on: conn)
+		} else {
+			hostUpdate = host.recordLoss(againstPlayerRated: opponent.elo, on: conn)
+			opponentUpdate = opponent.recordWin(againstPlayerRated: host.elo, on: conn)
+		}
+
+		return hostUpdate
+			.flatMap { _ in opponentUpdate }
+			.transform(to: ())
 	}
 
 	func updateOptions(

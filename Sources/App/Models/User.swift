@@ -69,6 +69,25 @@ extension User: Validatable {
 	}
 }
 
+// MARK: - Modifiers
+
+extension User {
+	func recordWin(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
+		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .win).updated
+		return self.update(on: conn)
+	}
+
+	func recordLoss(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
+		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .loss).updated
+		return self.update(on: conn)
+	}
+
+	func recordDraw(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
+		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .draw).updated
+		return self.update(on: conn)
+	}
+}
+
 // MARK: - Authentication
 
 extension User: PasswordAuthenticatable {

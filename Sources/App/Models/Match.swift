@@ -183,7 +183,7 @@ extension Match {
 				}
 
 				// Update Elos and ignore any errors
-				return try self.resolveNewElos(
+				return self.resolveNewElos(
 					host: host,
 					opponent: opponent,
 					winner: winner,

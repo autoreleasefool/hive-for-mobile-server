@@ -103,7 +103,7 @@ final class MatchController {
 		let user = try request.requireAuthenticated(User.self)
 		return try request.parameters.next(Match.self)
 			.flatMap { match in
-				try self.gameManager.add(opponent: user.requireID(), to: match.requireID(), on: request)
+				try self.gameManager.add(user: user.requireID(), to: match.requireID(), on: request)
 			}
 	}
 }

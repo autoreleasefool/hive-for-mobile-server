@@ -28,7 +28,7 @@ final class GameManager {
 	}
 
 	func add(
-		opponent opponentId: User.ID,
+		user userId: User.ID,
 		to matchId: Match.ID,
 		on conn: DatabaseConnectable
 	) throws -> EventLoopFuture<JoinMatchResponse> {
@@ -36,14 +36,53 @@ final class GameManager {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
 		}
 
-		guard session.game.opponentId == nil || session.game.opponentId == opponentId else {
+		guard session.game.hostId != userId else {
+			return try reconnect(host: userId, to: matchId, session: session, on: conn)
+		}
+
+		guard session.game.opponentId == nil || session.game.opponentId == userId else {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
 		}
 
-		guard session.game.hostId != opponentId else {
-			throw Abort(.badRequest, reason: "Cannot join a match you are hosting")
-		}
+		return try add(opponentId: userId, to: matchId, session: session, on: conn)
+	}
 
+	private func reconnect(
+		host: User.ID,
+		to matchId: Match.ID,
+		session: GameSession,
+		on conn: DatabaseConnectable
+	) throws -> EventLoopFuture<JoinMatchResponse> {
+		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
+		let playerIds: [User.ID] = [session.game.hostId, session.game.opponentId].compactMap { $0 }
+
+		return Match.find(matchId, on: conn)
+			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
+			.flatMap {
+				User.query(on: conn)
+					.filter(\.id ~~ playerIds)
+					.all()
+					.and(result: $0)
+			}
+			.map { users, match in
+				guard let host = users.first(where: { $0.id == session.game.hostId }) else {
+					throw Abort(
+						.badRequest,
+						reason: "Could not find host (\(session.game.hostId))"
+					)
+				}
+
+				let opponent = users.first(where: { $0.id == session.game.opponentId })
+				return try JoinMatchResponse(from: match, withHost: host, withOpponent: opponent)
+			}
+	}
+
+	private func add(
+		opponentId: User.ID,
+		to matchId: Match.ID,
+		session: GameSession,
+		on conn: DatabaseConnectable
+	) throws -> EventLoopFuture<JoinMatchResponse> {
 		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
 		return Match.find(matchId, on: conn)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))

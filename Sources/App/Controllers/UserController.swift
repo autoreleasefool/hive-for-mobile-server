@@ -125,9 +125,7 @@ extension UserController: RouteCollection {
 		tokenUserGroup.get("validate", use: validate)
 
 		// Admin authenticated routes
-		#warning("TODO: enable admin user group for production")
-//		let adminUserGroup = router.grouped(AdminMiddleware())
-		let adminUserGroup = userGroup
+		let adminUserGroup = router.grouped(AdminMiddleware())
 		adminUserGroup.get("all", use: users)
 	}
 }

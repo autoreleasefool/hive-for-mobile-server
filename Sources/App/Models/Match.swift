@@ -123,7 +123,7 @@ extension Match {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to begin (\#(status))"#)
 		}
 
-		guard let opponentId = opponentId else {
+		guard opponentId != nil else {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
 		}
 

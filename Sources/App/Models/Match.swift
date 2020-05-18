@@ -38,11 +38,6 @@ final class Match: SQLiteUUIDModel, Content, Migration, Parameter {
 	/// ID of the user the match is played against
 	private(set) var opponentId: User.ID?
 
-	/// ELO of the host at the start of the game
-	private(set) var hostElo: Int?
-	/// ELO of the opponent at the start of the game
-	private(set) var opponentElo: Int?
-
 	/// ID of the winner of the game. `nil` for a tie
 	private(set) var winner: User.ID?
 
@@ -132,24 +127,8 @@ extension Match {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
 		}
 
-		return User.query(on: conn)
-			.filter(\.id ~~ [hostId, opponentId])
-			.all()
-			.flatMap { users in
-				guard let host = users.first(where: { $0.id == self.hostId }),
-					let opponent = users.first(where: { $0.id == opponentId }) else {
-						throw Abort(
-							.badRequest,
-							reason: "Could not find all users (\(self.hostId), \(opponentId))"
-						)
-				}
-
-				self.hostElo = host.elo
-				self.opponentElo = opponent.elo
-				self.status = .active
-
-				return self.update(on: conn)
-			}
+		self.status = .active
+		return self.update(on: conn)
 	}
 
 	func end(winner: User.ID?, on conn: DatabaseConnectable) throws -> Future<Match> {
@@ -241,8 +220,6 @@ typealias JoinMatchResponse = MatchDetailsResponse
 
 struct MatchDetailsResponse: Content {
 	let id: Match.ID
-	let hostElo: Int?
-	let opponentElo: Int?
 	let options: String
 	let gameOptions: String
 	let createdAt: Date?
@@ -257,8 +234,6 @@ struct MatchDetailsResponse: Content {
 
 	init(from match: Match, withHost host: User? = nil, withOpponent opponent: User? = nil) throws {
 		self.id = try match.requireID()
-		self.hostElo = match.hostElo
-		self.opponentElo = match.opponentElo
 		self.options = match.options
 		self.gameOptions = match.gameOptions
 		self.createdAt = match.createdAt

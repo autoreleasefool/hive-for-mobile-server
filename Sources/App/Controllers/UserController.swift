@@ -81,7 +81,7 @@ final class UserController {
 		return token.save(on: request)
 	}
 
-	func logout(_ request: Request) throws -> Future<HTTPResponseStatus> {
+	func logout(_ request: Request) throws -> Future<LogoutResult> {
 		let user = try request.requireAuthenticated(User.self)
 		guard let token = request.http.headers.bearerAuthorization?.token else {
 			throw Abort(.badRequest, reason: "Token must be supplied to logout")
@@ -91,7 +91,7 @@ final class UserController {
 			.query(on: request)
 			.filter(\.token == token)
 			.delete()
-			.transform(to: .ok)
+			.transform(to: LogoutResult(success: true))
 	}
 
 	func validate(_ request: Request) throws -> Future<UserTokenValidationResponse> {
@@ -127,5 +127,13 @@ extension UserController: RouteCollection {
 		// Admin authenticated routes
 		let adminUserGroup = router.grouped(AdminMiddleware())
 		adminUserGroup.get("all", use: users)
+	}
+}
+
+// MARK: Logout Result
+
+extension UserController {
+	struct LogoutResult: Content {
+		let success: Bool
 	}
 }

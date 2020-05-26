@@ -58,7 +58,11 @@
 
 <summary>Example response</summary>
 <details>
-`OK`
+```
+{
+	"success": true
+}
+```
 </details>
 
 **GET** api/users/validate - Token validation

@@ -117,7 +117,7 @@ extension MatchController: RouteCollection {
 		// Public routes
 		matchGroup.get("open", use: openMatches)
 		matchGroup.get("active", use: activeMatches)
-		matchGroup.get(Match.parameter, use: details)
+		matchGroup.get(Match.parameter, "details", use: details)
 
 		// Token authenticated routes
 		let tokenMatchGroup = matchGroup.grouped(User.tokenAuthMiddleware())

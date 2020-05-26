@@ -147,7 +147,7 @@
 ```
 </details>
 
-**GET** api/matches/ID - Match details
+**GET** api/matches/ID/details - Match details
 
 <summary>Example response</summary>
 <details>

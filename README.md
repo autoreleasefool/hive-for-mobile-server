@@ -1,4 +1,4 @@
-# Hive for iOS - Server
+# Hive for Mobile - Server
 
 The backend for the [Hive for iOS](https://github.com/josephroquedev/hive-for-ios) app.
 
@@ -8,10 +8,11 @@ For more information on the API, see [API.md](./API.md)
 
 ## Getttng Started
 
-1. Open `Hive-for-iOS-Server.xcodeproj` in Xcode
-2. Select the `Run` scheme and choose the destination `My Mac`
-3. Run the server
-4. The app will be available at `localhost:8080`
+1. Run `vapor xcode` to generate the Xcode project
+1. Open `Hive-for-Mobile-Server.xcodeproj` in Xcode
+1. Select the `Run` scheme and choose the destination `My Mac`
+1. Run the server
+1. The app will be available at `localhost:8080`
 
 ### Optional
 

@@ -1,6 +1,6 @@
 //
 //  Game.swift
-//  Hive-for-iOS-Server
+//  Hive-for-Mobile-Server
 //
 //  Created by Joseph Roque on 2020-04-14.
 //

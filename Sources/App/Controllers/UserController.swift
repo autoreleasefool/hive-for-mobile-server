@@ -6,134 +6,136 @@
 //  Copyright © 2020 Joseph Roque. All rights reserved.
 //
 
-import Vapor
 import Fluent
-import FluentSQLite
-import Crypto
+import Vapor
 
-final class UserController {
-	func users(_ request: Request) throws -> Future<[UserSummaryResponse]> {
-		User.query(on: request)
-			.sort(\.displayName)
+struct UserController: RouteCollection {
+	enum Parameter: String {
+		case user = "userID"
+	}
+
+	func boot(routes: RoutesBuilder) throws {
+		let users = routes.grouped("api", "users")
+		users.post("signup", use: create)
+		users.group(.parameter(Parameter.user.rawValue)) { user in
+			user.get("details", use: details)
+			user.get("summary", use: summary)
+		}
+
+		#warning("TODO: remove, or guard behind admin")
+		let adminProtected = users // users.grouped(AdminMiddleware())
+		adminProtected.get(use: index)
+
+		let passwordProtected = users.grouped(User.authenticator())
+			.grouped(User.guardMiddleware())
+		passwordProtected.post("login") { req -> EventLoopFuture<SessionToken> in
+			let user = try req.auth.require(User.self)
+			let token = try Token.generateToken(forUser: user.requireID(), source: .login)
+			return token.save(on: req.db)
+				.flatMapThrowing { try SessionToken(user: user, token: token) }
+		}
+
+		let tokenProtected = users.grouped(Token.authenticator())
+			.grouped(Token.guardMiddleware())
+		tokenProtected.delete("logout", use: logout)
+		tokenProtected.get("validate", use: validate)
+	}
+
+	// MARK: - Content
+
+	func index(req: Request) throws -> EventLoopFuture<[User.Summary]> {
+		User.query(on: req.db)
+			.sort(\.$displayName)
 			.all()
-			.map { try $0.map { try UserSummaryResponse(from: $0) } }
+			.flatMapThrowing { try $0.map { try User.Summary(from: $0) } }
 	}
 
-	func summary(_ request: Request) throws -> Future<UserSummaryResponse> {
-		try request.parameters.next(User.self)
-			.map { try UserSummaryResponse(from: $0) }
+	func summary(req: Request) throws -> EventLoopFuture<User.Summary> {
+		User.find(req.parameters.get(Parameter.user.rawValue), on: req.db)
+			.unwrap(or: Abort(.notFound))
+			.flatMapThrowing { try User.Summary(from: $0) }
 	}
 
-	func details(_ request: Request) throws -> Future<UserDetailsResponse> {
-		try request.parameters.next(User.self)
-			.flatMap {
-				Match.query(on: request)
-					.filter(\.status ~~ [.active, .ended])
-					.sort(\.createdAt)
-					.all()
-					.and(result: $0)
-			}.map { matches, user in
-				#warning("TODO: need to add users/winners to MatchDetailsResponse")
-				var response = try UserDetailsResponse(from: user)
-				for match in matches {
-					guard match.hostId == user.id || match.opponentId == user.id else { continue }
-					if match.status == .active {
-						response.activeMatches.append(try MatchDetailsResponse(from: match))
-					} else if match.status == .ended {
-						response.pastMatches.append(try MatchDetailsResponse(from: match))
-					}
-				}
-				return response
-			}
+	func details(req: Request) throws -> EventLoopFuture<User.Details> {
+		User.find(req.parameters.get(Parameter.user.rawValue), on: req.db)
+			.unwrap(or: Abort(.notFound))
+			.flatMapThrowing { try User.Details(from: $0) }
+//			.flatMap {
+//				Match.query(on: request)
+//					.filter(\.status ~~ [.active, .ended])
+//					.sort(\.createdAt)
+//					.all()
+//					.and(result: $0)
+//			}.map { matches, user in
+//				#warning("TODO: need to add users/winners to MatchDetailsResponse")
+//				var response = try UserDetailsResponse(from: user)
+//				for match in matches {
+//					guard match.hostId == user.id || match.opponentId == user.id else { continue }
+//					if match.status == .active {
+//						response.activeMatches.append(try MatchDetailsResponse(from: match))
+//					} else if match.status == .ended {
+//						response.pastMatches.append(try MatchDetailsResponse(from: match))
+//					}
+//				}
+//				return response
+//			}
 	}
 
-	func create(_ request: Request) throws -> Future<CreateUserResponse> {
-		try request.content.decode(CreateUserRequest.self)
-			.flatMap {
-				User.query(on: request)
-					.filter(\.email == $0.email)
-					.first()
-					.and(result: $0)
-			}.flatMap { existingUser, user -> Future<User> in
+	// MARK: - Authentication
+
+	func create(req: Request) throws -> EventLoopFuture<User.Create.Response> {
+		try User.Create.validate(req)
+		let create = try req.content.decode(User.Create.self)
+
+		guard create.password == create.verifyPassword else {
+			throw Abort(.badRequest, reason: "Password and verification must match.")
+		}
+
+		return User.query(on: req.db)
+			.filter(\.$email == create.email.lowercased())
+			.first()
+			.flatMap { existingUser -> EventLoopFuture<User> in
 				guard existingUser == nil else {
-					throw Abort(.badRequest, reason: "User with email already exists.")
+					return req.eventLoop.makeFailedFuture(
+						Abort(.badRequest, reason: "User with email already exists.")
+					)
 				}
 
-				guard user.password == user.verifyPassword else {
-					throw Abort(.badRequest, reason: "Password and verification must match.")
+				do {
+					let hash = try Bcrypt.hash(create.password)
+					let user = User(email: create.email.lowercased(), password: hash, displayName: create.displayName)
+					return user.save(on: req.db)
+						.map { user }
+				} catch {
+					return req.eventLoop.makeFailedFuture(error)
 				}
-
-				let hash = try BCrypt.hash(user.password)
-				return User(email: user.email.lowercased(), password: hash, displayName: user.displayName)
-					.save(on: request)
-			}.flatMap {
-				try UserToken(forUser: $0.requireID())
-					.save(on: request)
-					.and(result: $0)
-			}.map { token, user in
-				return try CreateUserResponse(from: user, withToken: UserTokenResponse(from: token))
+			}
+			.flatMap { user in
+				do {
+					let token = try Token.generateToken(forUser: user.requireID(), source: .signup)
+					return token.save(on: req.db)
+						.map { (user, token) }
+				} catch {
+					return req.eventLoop.makeFailedFuture(error)
+				}
+			}
+			.flatMapThrowing { (user, token) in
+				try User.Create.Response(from: user, withToken: token)
 			}
 	}
 
-	func login(_ request: Request) throws -> Future<UserToken> {
-		let user = try request.requireAuthenticated(User.self)
-		let token = try UserToken(forUser: user.requireID())
-		return token.save(on: request)
-	}
-
-	func logout(_ request: Request) throws -> Future<LogoutResult> {
-		let user = try request.requireAuthenticated(User.self)
-		guard let token = request.http.headers.bearerAuthorization?.token else {
+	func logout(req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
+		guard let token = req.headers.bearerAuthorization?.token else {
 			throw Abort(.badRequest, reason: "Token must be supplied to logout")
 		}
 
-		return try user.sessions
-			.query(on: request)
-			.filter(\.token == token)
+		return try Token.query(on: req.db)
+			.filter(\.$value == token)
 			.delete()
-			.transform(to: LogoutResult(success: true))
+			.transform(to: .ok)
 	}
 
-	func validate(_ request: Request) throws -> Future<UserTokenValidationResponse> {
-		let user = try request.requireAuthenticated(User.self)
-		guard let token = request.http.headers.bearerAuthorization?.token else {
-			throw Abort(.badRequest, reason: "Token not supplied for validation")
-		}
-		let validation = try UserTokenValidationResponse(userId: user.requireID(), token: token)
-		return request.future(validation)
-	}
-}
-
-// MARK: RouteCollection
-
-extension UserController: RouteCollection {
-	func boot(router: Router) throws {
-		let userGroup = router.grouped("users")
-
-		// Public routes
-		userGroup.get(User.parameter, "details", use: details)
-		userGroup.get(User.parameter, "summary", use: summary)
-		userGroup.post("signup", use: create)
-
-		// Password authenticated routes
-		let passwordUserGroup = userGroup.grouped(User.basicAuthMiddleware(using: BCryptDigest()))
-		passwordUserGroup.post("login", use: login)
-
-		// Token authenticated routes
-		let tokenUserGroup = userGroup.grouped(User.tokenAuthMiddleware())
-		tokenUserGroup.delete("logout", use: logout)
-		tokenUserGroup.get("validate", use: validate)
-
-		// Admin authenticated routes
-		let adminUserGroup = router.grouped(AdminMiddleware())
-		adminUserGroup.get("all", use: users)
-	}
-}
-
-// MARK: Logout Result
-
-extension UserController {
-	struct LogoutResult: Content {
-		let success: Bool
+	func validate(req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
+		req.eventLoop.makeSucceededFuture(.ok)
 	}
 }

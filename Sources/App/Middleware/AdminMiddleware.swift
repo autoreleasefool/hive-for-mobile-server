@@ -9,13 +9,13 @@
 import Vapor
 
 final class AdminMiddleware: Middleware {
-	func respond(to request: Request, chainingTo next: Responder) throws -> EventLoopFuture<Response> {
-		let user = try request.requireAuthenticated(User.self)
+	func respond(to req: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
+		let user = try req.auth.require(User.self)
 
 		guard user.isAdmin else {
 			throw Abort(.unauthorized)
 		}
 
-		return try next.respond(to: request)
+		return try next.respond(to: req)
 	}
 }

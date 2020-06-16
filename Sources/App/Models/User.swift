@@ -6,46 +6,56 @@
 //  Copyright © 2020 Joseph Roque. All rights reserved.
 //
 
+import Fluent
 import Vapor
-import FluentSQLite
-import Authentication
 
-final class User: SQLiteUUIDModel, Content, Migration, Parameter {
+final class User: Model, Content {
+	static let schema = "users"
+
+	@ID(key: .id)
 	var id: UUID?
 
-	/// Unique email of the user
-	private(set) var email: String
+	/// Unique ID of the user
+	@Field(key: "email")
+	var email: String
+
 	/// Hashed password
-	private(set) var password: String
+	@Field(key: "password")
+	var password: String
+
 	/// Display name of the user
-	private(set) var displayName: String
+	@Field(key: "displayName")
+	var displayName: String
 
 	/// Calculated ELO of the user
-	private(set) var elo: Int
+	@Field(key: "elo")
+	var elo: Int
+
 	/// Link to the user's avatar
-	private(set) var avatarUrl: String?
-	/// `true` if the user is a bot player
-	private(set) var isBot: Bool
+	@Field(key: "avatarUrl")
+	var avatarUrl: String?
 
 	/// `true` if the user has admin priveleges
-	private(set) var isAdmin: Bool = false
+	@Field(key: "isAdmin")
+	var isAdmin: Bool
+
+	init() { }
 
 	init(email: String, password: String, displayName: String) {
 		self.email = email
 		self.password = password
 		self.displayName = displayName
 		self.elo = Elo.Rating.default
-		self.isBot = false
+		self.isAdmin = false
 	}
 
 	init(
-		id: UUID?,
+		id: UUID? = nil,
 		email: String,
 		password: String,
 		displayName: String,
 		elo: Int,
 		avatarUrl: String?,
-		isBot: Bool,
 		isAdmin: Bool
 	) {
 		self.id = id
@@ -54,155 +64,164 @@ final class User: SQLiteUUIDModel, Content, Migration, Parameter {
 		self.displayName = displayName
 		self.elo = elo
 		self.avatarUrl = avatarUrl
-		self.isBot = isBot
 		self.isAdmin = isAdmin
 	}
 }
 
-extension User: Validatable {
-	static func validations() throws -> Validations<User> {
-		var validations = Validations(User.self)
-		try validations.add(\.email, .email)
-		try validations.add(\.displayName, .alphanumeric && .count(3...24))
-		try validations.add(\.avatarUrl, .url || .nil)
-		return validations
-	}
-}
+// extension User: Validatable {
+// 	static func validations() throws -> Validations<User> {
+// 		var validations = Validations(User.self)
+// 		try validations.add(\.email, .email)
+// 		try validations.add(\.displayName, .alphanumeric && .count(3...24))
+// 		try validations.add(\.avatarUrl, .url || .nil)
+// 		return validations
+// 	}
+// }
 
-// MARK: - Modifiers
+// // MARK: - Modifiers
 
-extension User {
-	func recordWin(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
-		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .win).updated
-		return self.update(on: conn)
-	}
+// extension User {
+// 	func recordWin(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
+// 		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .win).updated
+// 		return self.update(on: conn)
+// 	}
 
-	func recordLoss(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
-		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .loss).updated
-		return self.update(on: conn)
-	}
+// 	func recordLoss(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
+// 		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .loss).updated
+// 		return self.update(on: conn)
+// 	}
 
-	func recordDraw(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
-		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .draw).updated
-		return self.update(on: conn)
-	}
-}
+// 	func recordDraw(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
+// 		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .draw).updated
+// 		return self.update(on: conn)
+// 	}
+// }
 
 // MARK: - Authentication
 
-extension User: PasswordAuthenticatable {
-	static var usernameKey: WritableKeyPath<User, String> {
-		\.email
-	}
+extension User: ModelAuthenticatable {
+	static let usernameKey = \User.$email
+	static let passwordHashKey = \User.$password
 
-	static var passwordKey: WritableKeyPath<User, String> {
-		\.password
-	}
-}
-
-extension User: TokenAuthenticatable {
-	typealias TokenType = UserToken
-
-	var sessions: Children<User, UserToken> {
-		children(\.userId)
+	func verify(password: String) throws -> Bool {
+		try Bcrypt.verify(password, created: self.password)
 	}
 }
 
 // MARK: - Create
 
-struct CreateUserRequest: Content {
-	let email: String
-	let password: String
-	let verifyPassword: String
-	let displayName: String
-}
-
-// MARK: - Response
-
-struct CreateUserResponse: Content {
-	let id: User.ID
-	let email: String
-	let displayName: String
-	let avatarUrl: String?
-	let token: UserTokenResponse
-
-	init(from user: User, withToken token: UserTokenResponse) throws {
-		self.id = try user.requireID()
-		self.email = user.email
-		self.displayName = user.displayName
-		self.avatarUrl = user.avatarUrl
-		self.token = token
+extension User {
+	struct Create: Content {
+		let email: String
+		let displayName: String
+		let password: String
+		let verifyPassword: String
+		let avatarUrl: String?
 	}
 }
 
-struct UserSummaryResponse: Content {
-	let id: User.ID
-	let displayName: String
-	let elo: Int
-	let avatarUrl: String?
-
-	init(from user: User) throws {
-		self.id = try user.requireID()
-		self.displayName = user.displayName
-		self.elo = user.elo
-		self.avatarUrl = user.avatarUrl
-	}
-
-	init?(from user: User?) throws {
-		guard let user = user else { return nil }
-		try self.init(from: user)
+extension User.Create: Validatable {
+	static func validations(_ validations: inout Validations) {
+		validations.add("displayName", as: String.self, is: !.empty && .alphanumeric && .count(3...24))
+		validations.add("email", as: String.self, is: .email)
+		validations.add("avatarUrl", as: String?.self, is: .nil || .url, required: false)
 	}
 }
 
-struct UserDetailsResponse: Content {
-	let id: User.ID
-	let displayName: String
-	let elo: Int
-	let avatarUrl: String?
-	var activeMatches: [MatchDetailsResponse] = []
-	var pastMatches: [MatchDetailsResponse] = []
+extension User.Create {
+	struct Response: Content {
+		let id: UUID
+		let email: String
+		let displayName: String
+		let avatarUrl: String?
+		let token: SessionToken
 
-	init(from user: User) throws {
-		self.id = try user.requireID()
-		self.displayName = user.displayName
-		self.elo = user.elo
-		self.avatarUrl = user.avatarUrl
+		init(from user: User, withToken token: Token) throws {
+			self.id = try user.requireID()
+			self.email = user.email
+			self.displayName = user.displayName
+			self.avatarUrl = user.avatarUrl
+			self.token = try SessionToken(user: user, token: token)
+		}
 	}
 }
 
-// MARK: - Optional Decode
+// MARK: - Summary
 
 extension User {
-	struct OptionalFields: Decodable {
-		let id: UUID?
-		let email: String?
-		let password: String?
-		let displayName: String?
-		let elo: Int?
+	struct Summary: Content {
+		let id: UUID
+		let displayName: String
+		let elo: Int
 		let avatarUrl: String?
-		let isBot: Bool?
-		let isAdmin: Bool?
-	}
 
-	convenience init?(_ optionalFields: OptionalFields) {
-		guard let email = optionalFields.email,
-			let password = optionalFields.password,
-			let displayName = optionalFields.displayName,
-			let elo = optionalFields.elo,
-			let isBot = optionalFields.isBot,
-			let isAdmin = optionalFields.isAdmin else {
-			return nil
+		init(from user: User) throws {
+			self.id = try user.requireID()
+			self.displayName = user.displayName
+			self.elo = user.elo
+			self.avatarUrl = user.avatarUrl
 		}
 
-		self.init(
-			id: optionalFields.id,
-			email: email,
-			password: password,
-			displayName: displayName,
-			elo: elo,
-			avatarUrl: optionalFields.avatarUrl,
-			isBot: isBot,
-			isAdmin: isAdmin
-		)
+		init?(from user: User?) throws {
+			guard let user = user else { return nil }
+			try self.init(from: user)
+		}
 	}
 }
+
+// MARK: - Details
+
+extension User {
+	struct Details: Content {
+		let id: UUID
+		let displayName: String
+		let elo: Int
+		let avatarUrl: String?
+//		var activeMatches: [MatchDetailsResponse] = []
+//		var pastMatches: [MatchDetailsResponse] = []
+
+		init(from user: User) throws {
+			self.id = try user.requireID()
+			self.displayName = user.displayName
+			self.elo = user.elo
+			self.avatarUrl = user.avatarUrl
+		}
+	}
+}
+
+// // MARK: - Optional Decode
+
+// extension User {
+// 	struct OptionalFields: Decodable {
+// 		let id: UUID?
+// 		let email: String?
+// 		let password: String?
+// 		let displayName: String?
+// 		let elo: Int?
+// 		let avatarUrl: String?
+// 		let isBot: Bool?
+// 		let isAdmin: Bool?
+// 	}
+
+// 	convenience init?(_ optionalFields: OptionalFields) {
+// 		guard let email = optionalFields.email,
+// 			let password = optionalFields.password,
+// 			let displayName = optionalFields.displayName,
+// 			let elo = optionalFields.elo,
+// 			let isBot = optionalFields.isBot,
+// 			let isAdmin = optionalFields.isAdmin else {
+// 			return nil
+// 		}
+
+// 		self.init(
+// 			id: optionalFields.id,
+// 			email: email,
+// 			password: password,
+// 			displayName: displayName,
+// 			elo: elo,
+// 			avatarUrl: optionalFields.avatarUrl,
+// 			isBot: isBot,
+// 			isAdmin: isAdmin
+// 		)
+// 	}
+// }

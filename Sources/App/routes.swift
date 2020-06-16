@@ -8,29 +8,31 @@
 
 import Vapor
 
-let gameManager = GameManager()
+// let gameManager = GameManager()
 
-func routes(_ router: Router) throws {
-	router.get { _ in
+func routes(_ app: Application) throws {
+	app.get { _ in
 		"It works!"
 	}
 
-	let apiRouter = router.grouped("api")
-	try apiRouter.register(collection: UserController())
-	try apiRouter.register(collection: MatchController(gameManager: gameManager))
+	// try app.register(collection: UserController())
+
+	// let apiRouter = router.grouped("api")
+	// try apiRouter.register(collection: UserController())
+	// try apiRouter.register(collection: MatchController(gameManager: gameManager))
 }
 
-func sockets(_ wss: NIOWebSocketServer) {
-	let responder = WebSocketResponder(
-		shouldUpgrade: { _ in return [:] },
-		onUpgrade: { ws, req in
-			WebSocketAuthenticationMiddleware.handle(
-				webSocket: ws,
-				request: req,
-				handler: gameManager.joinMatch
-			)
-		}
-	)
-	let route: Route<WebSocketResponder> = .init(path: [Match.parameter, "play"], output: responder)
-	wss.register(route: route)
-}
+// func sockets(_ wss: NIOWebSocketServer) {
+// 	let responder = WebSocketResponder(
+// 		shouldUpgrade: { _ in return [:] },
+// 		onUpgrade: { ws, req in
+// 			WebSocketAuthenticationMiddleware.handle(
+// 				webSocket: ws,
+// 				request: req,
+// 				handler: gameManager.joinMatch
+// 			)
+// 		}
+// 	)
+// 	let route: Route<WebSocketResponder> = .init(path: [Match.parameter, "play"], output: responder)
+// 	wss.register(route: route)
+// }

@@ -9,7 +9,7 @@ let package = Package(
 	dependencies: [
 		.package(url: "https://github.com/vapor/vapor.git", from: "4.0.0"),
 		.package(url: "https://github.com/vapor/fluent.git", from: "4.0.0"),
-		.package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.0.0-rc")
+		.package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.0.0-rc"),
 		.package(name: "HiveEngine", url: "https://github.com/josephroquedev/hive-engine.git", from: "3.0.0"),
 	],
 	targets: [

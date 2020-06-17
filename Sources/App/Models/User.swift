@@ -24,7 +24,7 @@ final class User: Model, Content {
 	var password: String
 
 	/// Display name of the user
-	@Field(key: "displayName")
+	@Field(key: "display_name")
 	var displayName: String
 
 	/// Calculated ELO of the user
@@ -32,11 +32,11 @@ final class User: Model, Content {
 	var elo: Int
 
 	/// Link to the user's avatar
-	@Field(key: "avatarUrl")
+	@OptionalField(key: "avatar_url")
 	var avatarUrl: String?
 
 	/// `true` if the user has admin priveleges
-	@Field(key: "isAdmin")
+	@Field(key: "is_admin")
 	var isAdmin: Bool
 
 	init() { }
@@ -67,16 +67,6 @@ final class User: Model, Content {
 		self.isAdmin = isAdmin
 	}
 }
-
-// extension User: Validatable {
-// 	static func validations() throws -> Validations<User> {
-// 		var validations = Validations(User.self)
-// 		try validations.add(\.email, .email)
-// 		try validations.add(\.displayName, .alphanumeric && .count(3...24))
-// 		try validations.add(\.avatarUrl, .url || .nil)
-// 		return validations
-// 	}
-// }
 
 // // MARK: - Modifiers
 

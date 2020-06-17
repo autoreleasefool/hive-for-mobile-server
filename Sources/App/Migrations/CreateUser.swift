@@ -14,11 +14,11 @@ struct CreateUser: Migration {
 		.field("id", .uuid, .identifier(auto: true))
 		.field("email", .string, .required)
 		.unique(on: "email")
-		.field("displayName", .string, .required)
+		.field("display_name", .string, .required)
 		.field("password", .string, .required)
 		.field("elo", .int, .required)
-		.field("avatarUrl", .string)
-		.field("isAdmin", .bool)
+		.field("avatar_url", .string)
+		.field("is_admin", .bool)
 		.create()
 	}
 

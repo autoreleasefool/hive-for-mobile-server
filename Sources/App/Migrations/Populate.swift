@@ -6,52 +6,44 @@
 //  Copyright © 2020 Joseph Roque. All rights reserved.
 //
 
-import Vapor
 import Fluent
-import FluentSQLite
 
-struct Populate: SQLiteMigration {
-	static func prepare(on conn: SQLiteConnection) -> Future<Void> {
+struct PopulateWithUsers: Migration {
+	func prepare(on database: Database) -> EventLoopFuture<Void> {
 		_ = User(
-				id: nil,
-				email: "a@a.ca",
-				password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
-				displayName: "Scott",
-				elo: 192,
-				avatarUrl: "https://avatars3.githubusercontent.com/u/5544925?v=4",
-				isBot: false,
-				isAdmin: false
-		).save(on: conn).transform(to: ())
+			id: nil,
+			email: "a@a.ca",
+			password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
+			displayName: "Scott",
+			elo: 192,
+			avatarUrl: "https://avatars3.githubusercontent.com/u/5544925?v=4",
+			isAdmin: false
+		).save(on: database)
 
 		_ = User(
-				id: nil,
-				email: "b@b.ca",
-				password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
-				displayName: "Dann Beauregard",
-				elo: 1240,
-				avatarUrl: "https://avatars2.githubusercontent.com/u/30088157?v=4",
-				isBot: false,
-				isAdmin: true
-		).save(on: conn).transform(to: ())
+			id: nil,
+			email: "b@b.ca",
+			password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
+			displayName: "Dann Beauregard",
+			elo: 1240,
+			avatarUrl: "https://avatars2.githubusercontent.com/u/30088157?v=4",
+			isAdmin: true
+		).save(on: database)
 
 		return User(
-				id: UUID(uuidString: "60448917-d472-4099-b1c8-956935245d6e")!,
-				email: "c@c.ca",
-				password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
-				displayName: "Joseph",
-				elo: 1000,
-				avatarUrl: "https://avatars1.githubusercontent.com/u/6619581?v=4",
-				isBot: false,
-				isAdmin: true
-		).save(on: conn).transform(to: ())
+			id: nil,
+			email: "c@c.ca",
+			password: "$2b$12$ByRFfmgsLcBeEqmjQR9UzeQuvXlYzbuRQENSwzo62JCuIbEvjuUCi",
+			displayName: "Joseph",
+			elo: 1000,
+			avatarUrl: "https://avatars1.githubusercontent.com/u/6619581?v=4",
+			isAdmin: true
+		).save(on: database)
 	}
 
-	static func revert(on conn: SQLiteConnection) -> Future<Void> {
-		let futures = ["a@a.ca", "b@b.ca", "c@c.ca"].map { email in
-			return User.query(on: conn).filter(\User.email == email)
-				.delete()
-		}
-
-		return futures.flatten(on: conn)
+	func revert(on database: Database) -> EventLoopFuture<Void> {
+		User.query(on: database)
+			.filter(\.$email ~~ ["a@a.ca", "b@b.ca", "c@c.ca"])
+			.delete()
 	}
 }

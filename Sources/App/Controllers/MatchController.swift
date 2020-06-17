@@ -6,122 +6,161 @@
 //  Copyright © 2020 Joseph Roque. All rights reserved.
 //
 
-import Vapor
 import Fluent
-import FluentSQLite
-import Crypto
+import Vapor
 
 final class MatchController {
-	private let gameManager: GameManager
-
-	init(gameManager: GameManager) {
-		self.gameManager = gameManager
+	enum Parameter: String {
+		case match = "matchID"
 	}
 
-	func create(_ request: Request) throws -> Future<CreateMatchResponse> {
-		let user = try request.requireAuthenticated(User.self)
+//	private let gameManager: GameManager
+//
+//	init(gameManager: GameManager) {
+//		self.gameManager = gameManager
+//	}
+
+	// MARK: Modify
+
+	func create(req: Request) throws -> EventLoopFuture<Match.Create.Response> {
+		let user = try req.auth.require(User.self)
 		let match = try Match(withHost: user)
-		return match.save(on: request)
-			.flatMap { try self.gameManager.add($0, on: request) }
-			.map {  try CreateMatchResponse(from: $0, withHost: user) }
+		return match.save(on: req.db)
+//			.flatMap { try self.gameManager.add($0, on: request) }
+			.flatMapThrowing { try Match.Create.Response(from: match, withHost: user) }
 	}
 
-	func details(_ request: Request) throws -> Future<MatchDetailsResponse> {
+	// 	func joinMatch(_ request: Request) throws -> Future<JoinMatchResponse> {
+	// 		let user = try request.requireAuthenticated(User.self)
+	// 		return try request.parameters.next(Match.self)
+	// 			.flatMap { match in
+	// 				try self.gameManager.add(user: user.requireID(), to: match.requireID(), on: request)
+	// 			}
+	// 	}
+	// }
+
+	func join(req: Request) throws -> EventLoopFuture<Match.Join.Response> {
+		let user = try req.auth.require(User.self)
+		return try Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
+			.unwrap(or: Abort(.notFound))
+//			.flatMapThrowing {
+//				try self.gameManager.add(user: user.requireID(), to: $0.requireID(), on: req)
+//			}
+			.flatMapThrowing { try Match.Join.Response(from: $0) }
+	}
+
+	// MARK: Details
+
+	func details(req: Request) throws -> EventLoopFuture<Match.Details> {
 		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
-		return try request.parameters.next(Match.self)
-			.flatMap {
-				try $0.moves
-					.query(on: request)
-					.sort(\.ordinal)
+
+		return try Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
+			.unwrap(or: Abort(.notFound))
+//			.flatMap {
+//				do {
+//					return try $0.moves.query(on: req.db)
+//						.sort(\.ordinal)
+//						.all()
+//						.and(value: $0)
+//				} catch {
+//					return req.eventLoop.makeFailedFuture(Abort(.internalServerError), "Failed to find moves")
+//				}
+//			}
+			.flatMap { match in
+				User.query(on: req.db)
+					.filter(\.$id ~~ [match.hostId, match.opponentId].compactMap { $0 })
 					.all()
-					.and(result: $0)
+//					.and(value: moves)
+					.and(value: match)
 			}
-			.flatMap { moves, match in
-				User.query(on: request)
-					.filter(\.id ~~ [match.hostId, match.opponentId])
-					.all()
-					.and(result: moves)
-					.and(result: match)
-			}.map { usersAndMoves, match in
-				let (users, moves) = usersAndMoves
-				var response = try MatchDetailsResponse(from: match)
-				response.moves = try moves.map { try MatchMovementResponse(from: $0) }
+			.flatMapThrowing { users, match in
+				var response = try Match.Details(from: match)
+//				response.moves = try moves.map { MatchMovement.Summary(from: $0) }
 				for user in users {
 					if user.id == match.hostId {
-						response.host = try UserSummaryResponse(from: user)
+						response.host = try User.Summary(from: user)
 					} else if user.id == match.opponentId {
-						response.opponent = try UserSummaryResponse(from: user)
+						response.opponent = try User.Summary(from: user)
 					}
 
 					if user.id == match.winner {
-						response.winner = try UserSummaryResponse(from: user)
+						response.winner = try User.Summary(from: user)
 					}
 				}
 				return response
 			}
 	}
 
-	func openMatches(_ request: Request) throws -> Future<[MatchDetailsResponse]> {
+	func open(req: Request) throws -> EventLoopFuture<[Match.Details]> {
 		#warning("TODO: users shouldn't be queried separately -- try to hit DB once")
-		return Match.query(on: request)
-			.filter(\.status == .notStarted)
-			.filter(\.opponentId == .none)
-			.sort(\.createdAt)
+		return Match.query(on: req.db)
+			.filter(\.$status == .notStarted)
+			.filter(\.$opponentId == .none)
+			.sort(\.$createdAt)
 			.all()
-			.flatMap {
-				User.query(on: request)
+			.toDetails(req: req)
+	}
+
+	func active(req: Request) throws -> EventLoopFuture<[Match.Details]> {
+		#warning("TODO: users shouldn't be queried separately -- try to hit DB once")
+		return Match.query(on: req.db)
+			.filter(\.$status == .active)
+			.sort(\.$createdAt)
+			.all()
+			.toDetails(req: req)
+	}
+}
+
+// MARK: - Match.Details
+
+private extension EventLoopFuture where Value == [Match] {
+	func toDetails(req: Request) -> EventLoopFuture<[Match.Details]> {
+		self.flatMap {
+				User.query(on: req.db)
 					.all()
-					.and(result: $0)
-			}.map { users, matches in
+					.and(value: $0)
+			}
+			.flatMapThrowing { users, matches in
 				try matches.map { match in
-					var response = try MatchDetailsResponse(from: match)
+					var response = try Match.Details(from: match)
 					for user in users {
 						if match.hostId == user.id {
-							response.host = try UserSummaryResponse(from: user)
+							response.host = try User.Summary(from: user)
 						} else if match.opponentId == user.id {
-							response.opponent = try UserSummaryResponse(from: user)
+							response.opponent = try  User.Summary(from: user)
 						}
 
 						if match.winner == user.id {
-							response.winner = try UserSummaryResponse(from: user)
+							response.winner = try  User.Summary(from: user)
 						}
 					}
 					return response
 				}
 			}
 	}
-
-	func activeMatches(_ request: Request) throws -> Future<[MatchDetailsResponse]> {
-		Match.query(on: request)
-			.filter(\.status == .active)
-			.sort(\.createdAt)
-			.all()
-			.map { try $0.map { try MatchDetailsResponse(from: $0) } }
-	}
-
-	func joinMatch(_ request: Request) throws -> Future<JoinMatchResponse> {
-		let user = try request.requireAuthenticated(User.self)
-		return try request.parameters.next(Match.self)
-			.flatMap { match in
-				try self.gameManager.add(user: user.requireID(), to: match.requireID(), on: request)
-			}
-	}
 }
 
-// MARK: RouteCollection
+// MARK: - RouteCollection
 
 extension MatchController: RouteCollection {
-	func boot(router: Router) throws {
-		let matchGroup = router.grouped("matches")
+	func boot(routes: RoutesBuilder) throws {
+		let matches = routes.grouped("api", "matches")
 
 		// Public routes
-		matchGroup.get("open", use: openMatches)
-		matchGroup.get("active", use: activeMatches)
-		matchGroup.get(Match.parameter, "details", use: details)
+		matches.get("open", use: open)
+		matches.get("active", use: active)
+		matches.group(.parameter(Parameter.match.rawValue)) { match in
+			match.get("details", use: details)
+		}
 
 		// Token authenticated routes
-		let tokenMatchGroup = matchGroup.grouped(User.tokenAuthMiddleware())
-		tokenMatchGroup.post(Match.parameter, "join", use: joinMatch)
-		tokenMatchGroup.post("new", use: create)
+		let tokenProtected = matches
+			.grouped(Token.authenticator())
+			.grouped(Token.guardMiddleware())
+		tokenProtected.post("new", use: create)
+		tokenProtected.group(.parameter(Parameter.match.rawValue)) { match in
+			match.post("join", use: join)
+		}
+
 	}
 }

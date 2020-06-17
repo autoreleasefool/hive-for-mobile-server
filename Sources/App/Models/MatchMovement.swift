@@ -6,82 +6,61 @@
 //  Copyright © 2020 Joseph Roque. All rights reserved.
 //
 
+
+import Fluent
 import Vapor
-import FluentSQLite
 import HiveEngine
 
-final class MatchMovement: SQLiteUUIDModel, Content, Migration {
+final class MatchMovement: Model, Content {
+	static let schema = "match_movements"
+
+	@ID(key: .id)
 	var id: UUID?
 
 	/// ID of the match the move was made in
-	private(set) var matchId: Match.ID
-	/// ID of the user that made the move
-	private(set) var userId: User.ID
+	@Parent(key: "match_id")
+	var match: Match
 
-	/// Date that the move was made
-	private(set) var createdAt: Date?
+	/// ID of the user that made the move
+	@Parent(key: "user_id")
+	var user: User
+
+	/// Date and time that the move was made
+	@Timestamp(key: "created_at", on: .create)
+	var createdAt: Date?
 
 	/// Notation describing the movement made
-	private(set) var notation: String
+	@Field(key: "notation")
+	var notation: String
+
 	/// Movement number in the game
-	private(set) var ordinal: Int
+	@Field(key: "ordinal")
+	var ordinal: Int
 
-	static var createdAtKey: TimestampKey? {
-		\.createdAt
-	}
+	init() {}
 
-	init(from: RelativeMovement, userId: User.ID, matchId: Match.ID, ordinal: Int) {
-		self.matchId = matchId
-		self.userId = userId
+	init(from: RelativeMovement, userId: User.IDValue, matchId: Match.IDValue, ordinal: Int) {
+		self.$user.id = userId
+		self.$match.id = matchId
 		self.notation = from.notation
 		self.ordinal = ordinal
 	}
 }
 
-// MARK: - Match Relation
+// MARK:- Summary
 
 extension MatchMovement {
-	/// Match that the move was made in
-	var match: Parent<MatchMovement, Match> {
-		parent(\.matchId)
-	}
-}
+	struct Summary: Content {
+		let id: MatchMovement.IDValue
+		let notation: String
+		let ordinal: Int
+		let date: Date
 
-extension Match {
-	/// Moves made in the match
-	var moves: Children<Match, MatchMovement> {
-		children(\.matchId)
-	}
-}
-
-// MARK: - User Relation
-
-extension MatchMovement {
-	/// User that made the movement
-	var user: Parent<MatchMovement, User> {
-		parent(\.userId)
-	}
-}
-
-extension User {
-	/// Moves made by the user
-	var moves: Children<User, MatchMovement> {
-		children(\.userId)
-	}
-}
-
-// MARK: - Response
-
-struct MatchMovementResponse: Content {
-	let id: MatchMovement.ID
-	let notation: String
-	let ordinal: Int
-	let date: Date
-
-	init(from movement: MatchMovement) throws {
-		self.id = try movement.requireID()
-		self.date = movement.createdAt!
-		self.notation = movement.notation
-		self.ordinal = movement.ordinal
+		init(from movement: MatchMovement) throws {
+			self.id = try movement.requireID()
+			self.date = movement.createdAt!
+			self.notation = movement.notation
+			self.ordinal = movement.ordinal
+		}
 	}
 }

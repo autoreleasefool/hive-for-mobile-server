@@ -33,25 +33,26 @@ struct UserController {
 		User.find(req.parameters.get(Parameter.user.rawValue), on: req.db)
 			.unwrap(or: Abort(.notFound))
 			.flatMapThrowing { try User.Details(from: $0) }
-//			.flatMap {
-//				Match.query(on: request)
-//					.filter(\.status ~~ [.active, .ended])
-//					.sort(\.createdAt)
-//					.all()
-//					.and(result: $0)
-//			}.map { matches, user in
-//				#warning("TODO: need to add users/winners to MatchDetailsResponse")
-//				var response = try UserDetailsResponse(from: user)
-//				for match in matches {
-//					guard match.hostId == user.id || match.opponentId == user.id else { continue }
-//					if match.status == .active {
-//						response.activeMatches.append(try MatchDetailsResponse(from: match))
-//					} else if match.status == .ended {
-//						response.pastMatches.append(try MatchDetailsResponse(from: match))
-//					}
-//				}
-//				return response
-//			}
+			.flatMap {
+				Match.query(on: req.db)
+					.filter(\.$status ~~ [.active, .ended])
+					.sort(\.$createdAt)
+					.all()
+					.and(value: $0)
+			}
+			.flatMapThrowing { matches, user in
+				#warning("TODO: need to add users/winners to Match.Details")
+				var response = try User.Details(from: user)
+				for match in matches {
+					guard match.hostId == user.id || match.opponentId == user.id else { continue }
+					if match.status == .active {
+						response.activeMatches.append(try Match.Details(from: match))
+					} else if match.status == .ended {
+						response.pastMatches.append(try Match.Details(from: match))
+					}
+				}
+				return response
+			}
 	}
 
 	// MARK: - Authentication

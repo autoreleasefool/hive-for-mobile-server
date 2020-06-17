@@ -54,6 +54,9 @@ final class Match: Model, Content {
 	@Field(key: "status")
 	var status: Status
 
+	@Children(for: \.$match)
+	var moves: [MatchMovement]
+
 	init() {}
 
 	init(withHost host: User) throws {
@@ -230,7 +233,7 @@ extension Match {
 		var host: User.Summary?
 		var opponent: User.Summary?
 		var winner: User.Summary?
-//		var moves: [MatchMovement.Summary] = []
+		var moves: [MatchMovement.Summary] = []
 
 		init(from match: Match, withHost host: User? = nil, withOpponent opponent: User? = nil) throws {
 			self.id = try match.requireID()

@@ -47,26 +47,23 @@ final class MatchController {
 
 		return Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
 			.unwrap(or: Abort(.notFound))
-//			.flatMap {
-//				do {
-//					return try $0.moves.query(on: req.db)
-//						.sort(\.ordinal)
-//						.all()
-//						.and(value: $0)
-//				} catch {
-//					return req.eventLoop.makeFailedFuture(Abort(.internalServerError), "Failed to find moves")
-//				}
-//			}
-			.flatMap { match in
+			.flatMap {
+				$0.$moves.query(on: req.db)
+					.sort(\.$ordinal)
+					.all()
+					.and(value: $0)
+			}
+			.flatMap { moves, match in
 				User.query(on: req.db)
 					.filter(\.$id ~~ [match.hostId, match.opponentId].compactMap { $0 })
 					.all()
-//					.and(value: moves)
+					.and(value: moves)
 					.and(value: match)
 			}
-			.flatMapThrowing { users, match in
+			.flatMapThrowing { usersAndMoves, match in
+				let (users, moves) = usersAndMoves
 				var response = try Match.Details(from: match)
-//				response.moves = try moves.map { MatchMovement.Summary(from: $0) }
+				response.moves = try moves.map { try MatchMovement.Summary(from: $0) }
 				for user in users {
 					if user.id == match.hostId {
 						response.host = try User.Summary(from: user)

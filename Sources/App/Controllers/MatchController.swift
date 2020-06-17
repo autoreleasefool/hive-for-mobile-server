@@ -30,18 +30,9 @@ final class MatchController {
 			.flatMapThrowing { try Match.Create.Response(from: match, withHost: user) }
 	}
 
-	// 	func joinMatch(_ request: Request) throws -> Future<JoinMatchResponse> {
-	// 		let user = try request.requireAuthenticated(User.self)
-	// 		return try request.parameters.next(Match.self)
-	// 			.flatMap { match in
-	// 				try self.gameManager.add(user: user.requireID(), to: match.requireID(), on: request)
-	// 			}
-	// 	}
-	// }
-
 	func join(req: Request) throws -> EventLoopFuture<Match.Join.Response> {
 		let user = try req.auth.require(User.self)
-		return try Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
+		return Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
 			.unwrap(or: Abort(.notFound))
 //			.flatMapThrowing {
 //				try self.gameManager.add(user: user.requireID(), to: $0.requireID(), on: req)
@@ -54,7 +45,7 @@ final class MatchController {
 	func details(req: Request) throws -> EventLoopFuture<Match.Details> {
 		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
 
-		return try Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
+		return Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
 			.unwrap(or: Abort(.notFound))
 //			.flatMap {
 //				do {

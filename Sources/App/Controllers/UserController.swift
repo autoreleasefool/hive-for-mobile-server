@@ -109,7 +109,7 @@ struct UserController {
 			throw Abort(.badRequest, reason: "Token must be supplied to logout")
 		}
 
-		return try Token.query(on: req.db)
+		return Token.query(on: req.db)
 			.filter(\.$value == token)
 			.delete()
 			.transform(to: .ok)

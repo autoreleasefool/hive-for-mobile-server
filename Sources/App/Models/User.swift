@@ -50,7 +50,7 @@ final class User: Model, Content {
 	}
 
 	init(
-		id: UUID? = nil,
+		id: User.IDValue? = nil,
 		email: String,
 		password: String,
 		displayName: String,
@@ -120,7 +120,7 @@ extension User.Create: Validatable {
 
 extension User.Create {
 	struct Response: Content {
-		let id: UUID
+		let id: User.IDValue
 		let email: String
 		let displayName: String
 		let avatarUrl: String?
@@ -140,7 +140,7 @@ extension User.Create {
 
 extension User {
 	struct Summary: Content {
-		let id: UUID
+		let id: User.IDValue
 		let displayName: String
 		let elo: Int
 		let avatarUrl: String?
@@ -163,7 +163,7 @@ extension User {
 
 extension User {
 	struct Details: Content {
-		let id: UUID
+		let id: User.IDValue
 		let displayName: String
 		let elo: Int
 		let avatarUrl: String?

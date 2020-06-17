@@ -24,15 +24,15 @@ final class Match: Model, Content {
 
 	/// ID of the user that created the match
 	@Field(key: "host_id")
-	var hostId: UUID
+	var hostId: User.IDValue
 
 	/// ID of the user the match is played against
 	@Field(key: "opponent_id")
-	var opponentId: UUID?
+	var opponentId: User.IDValue?
 
 	/// ID of the winner of the game. `nil` for a tie or game that hasn't ended yet. See `status`
 	@Field(key: "winner_id")
-	var winner: UUID?
+	var winner: User.IDValue?
 
 	/// HiveEngine options that were used in the game
 	@Field(key: "game_options")
@@ -63,7 +63,7 @@ final class Match: Model, Content {
 		self.gameOptions = OptionSet.encode(GameState().options)
 	}
 
-	func opponent(for userId: UUID) -> UUID? {
+	func opponent(for userId: User.IDValue) -> User.IDValue? {
 		if userId == hostId {
 			return opponentId
 		} else if userId == opponentId {
@@ -219,7 +219,7 @@ extension Match {
 
 extension Match {
 	struct Details: Content {
-		let id: UUID
+		let id: Match.IDValue
 		let options: String
 		let gameOptions: String
 		let createdAt: Date?

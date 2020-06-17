@@ -37,7 +37,7 @@ final class Token: Model {
 
 	init() {}
 
-	init(id: UUID? = nil, userId: User.IDValue, token: String, source: SessionSource, expiresAt: Date?) {
+	init(id: Token.IDValue? = nil, userId: User.IDValue, token: String, source: SessionSource, expiresAt: Date?) {
 		self.id = id
 		self.$user.id = userId
 		self.value = token
@@ -45,7 +45,7 @@ final class Token: Model {
 		self.expiresAt = expiresAt
 	}
 
-	static func generateToken(forUser userId: UUID, source: SessionSource) throws -> Token {
+	static func generateToken(forUser userId: User.IDValue, source: SessionSource) throws -> Token {
 		// Uncomment for token expiration
 //		let calendar = Calendar(identifier: .gregorian)
 //		let expiryDate = calendar.date(byAdding: .year, value: 1, to: Date())
@@ -77,8 +77,8 @@ extension Token: ModelTokenAuthenticatable {
 // MARK: - Response
 
 struct SessionToken: Content {
-	let userId: UUID
-	let sessionId: UUID
+	let userId: User.IDValue
+	let sessionId: Token.IDValue
 	let token: String
 
 	init(user: User, token: Token) throws {

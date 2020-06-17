@@ -9,36 +9,9 @@
 import Fluent
 import Vapor
 
-struct UserController: RouteCollection {
+struct UserController {
 	enum Parameter: String {
 		case user = "userID"
-	}
-
-	func boot(routes: RoutesBuilder) throws {
-		let users = routes.grouped("api", "users")
-		users.post("signup", use: create)
-		users.group(.parameter(Parameter.user.rawValue)) { user in
-			user.get("details", use: details)
-			user.get("summary", use: summary)
-		}
-
-		#warning("TODO: remove, or guard behind admin")
-		let adminProtected = users // users.grouped(AdminMiddleware())
-		adminProtected.get(use: index)
-
-		let passwordProtected = users.grouped(User.authenticator())
-			.grouped(User.guardMiddleware())
-		passwordProtected.post("login") { req -> EventLoopFuture<SessionToken> in
-			let user = try req.auth.require(User.self)
-			let token = try Token.generateToken(forUser: user.requireID(), source: .login)
-			return token.save(on: req.db)
-				.flatMapThrowing { try SessionToken(user: user, token: token) }
-		}
-
-		let tokenProtected = users.grouped(Token.authenticator())
-			.grouped(Token.guardMiddleware())
-		tokenProtected.delete("logout", use: logout)
-		tokenProtected.get("validate", use: validate)
 	}
 
 	// MARK: - Content
@@ -124,6 +97,13 @@ struct UserController: RouteCollection {
 			}
 	}
 
+	func login(req: Request) throws -> EventLoopFuture<SessionToken> {
+		let user = try req.auth.require(User.self)
+		let token = try Token.generateToken(forUser: user.requireID(), source: .login)
+		return token.save(on: req.db)
+			.flatMapThrowing { try SessionToken(user: user, token: token) }
+	}
+
 	func logout(req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
 		guard let token = req.headers.bearerAuthorization?.token else {
 			throw Abort(.badRequest, reason: "Token must be supplied to logout")
@@ -137,5 +117,38 @@ struct UserController: RouteCollection {
 
 	func validate(req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
 		req.eventLoop.makeSucceededFuture(.ok)
+	}
+}
+
+// MARK: - RouteCollection
+
+extension UserController: RouteCollection {
+	func boot(routes: RoutesBuilder) throws {
+		let users = routes.grouped("api", "users")
+
+		// Public routes
+
+		users.post("signup", use: create)
+		users.group(.parameter(Parameter.user.rawValue)) { user in
+			user.get("details", use: details)
+			user.get("summary", use: summary)
+		}
+
+		// Protected routes
+
+		let passwordProtected = users
+			.grouped(User.authenticator())
+			.grouped(User.guardMiddleware())
+		passwordProtected.post("login", use: login)
+
+		let tokenProtected = users
+			.grouped(Token.authenticator())
+			.grouped(Token.guardMiddleware())
+		tokenProtected.delete("logout", use: logout)
+		tokenProtected.get("validate", use: validate)
+
+		#warning("TODO: remove, or guard behind admin")
+		let adminProtected = users // users.grouped(AdminMiddleware())
+		adminProtected.get(use: index)
 	}
 }

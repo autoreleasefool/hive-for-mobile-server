@@ -68,24 +68,27 @@ final class User: Model, Content {
 	}
 }
 
-// // MARK: - Modifiers
+// MARK: - Modifiers
 
-// extension User {
-// 	func recordWin(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
-// 		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .win).updated
-// 		return self.update(on: conn)
-// 	}
+extension User {
+	func recordWin(againstPlayerRated opponentElo: Int, on req: Request) -> EventLoopFuture<User> {
+		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .win).updated
+		return self.update(on: req.db)
+			.map { self }
+	}
 
-// 	func recordLoss(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
-// 		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .loss).updated
-// 		return self.update(on: conn)
-// 	}
+	func recordLoss(againstPlayerRated opponentElo: Int, on req: Request) -> EventLoopFuture<User> {
+		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .loss).updated
+		return self.update(on: req.db)
+			.map { self }
+	}
 
-// 	func recordDraw(againstPlayerRated opponentElo: Int, on conn: DatabaseConnectable) -> Future<User> {
-// 		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .draw).updated
-// 		return self.update(on: conn)
-// 	}
-// }
+	func recordDraw(againstPlayerRated opponentElo: Int, on req: Request) -> EventLoopFuture<User> {
+		elo = Elo.Rating(playerRating: elo, opponentRating: opponentElo, outcome: .draw).updated
+		return self.update(on: req.db)
+			.map { self }
+	}
+}
 
 // MARK: - Authentication
 
@@ -167,8 +170,8 @@ extension User {
 		let displayName: String
 		let elo: Int
 		let avatarUrl: String?
-//		var activeMatches: [MatchDetailsResponse] = []
-//		var pastMatches: [MatchDetailsResponse] = []
+		var activeMatches: [Match.Details] = []
+		var pastMatches: [Match.Details] = []
 
 		init(from user: User) throws {
 			self.id = try user.requireID()

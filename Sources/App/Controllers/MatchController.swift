@@ -14,11 +14,11 @@ final class MatchController {
 		case match = "matchID"
 	}
 
-//	private let gameManager: GameManager
-//
-//	init(gameManager: GameManager) {
-//		self.gameManager = gameManager
-//	}
+	private let gameManager: GameManager
+
+	init(gameManager: GameManager) {
+		self.gameManager = gameManager
+	}
 
 	// MARK: Modify
 
@@ -26,18 +26,29 @@ final class MatchController {
 		let user = try req.auth.require(User.self)
 		let match = try Match(withHost: user)
 		return match.save(on: req.db)
-//			.flatMap { try self.gameManager.add($0, on: request) }
-			.flatMapThrowing { try Match.Create.Response(from: match, withHost: user) }
+			.flatMap {
+				do {
+					let match = try self.gameManager.add(match, on: req)
+					return match
+				} catch {
+					return req.eventLoop.makeFailedFuture(error)
+				}
+			}
+			.flatMapThrowing { try Match.Create.Response(from: $0, withHost: user) }
 	}
 
 	func join(req: Request) throws -> EventLoopFuture<Match.Join.Response> {
 		let user = try req.auth.require(User.self)
 		return Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
 			.unwrap(or: Abort(.notFound))
-//			.flatMapThrowing {
-//				try self.gameManager.add(user: user.requireID(), to: $0.requireID(), on: req)
-//			}
-			.flatMapThrowing { try Match.Join.Response(from: $0) }
+			.flatMap {
+				do {
+					let match = try self.gameManager.add(user: user.requireID(), to: $0.requireID(), on: req)
+					return match
+				} catch {
+					return req.eventLoop.makeFailedFuture(error)
+				}
+			}
 	}
 
 	// MARK: Details

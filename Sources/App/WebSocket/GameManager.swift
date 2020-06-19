@@ -5,66 +5,63 @@
 //  Created by Joseph Roque on 2020-04-14.
 //
 
-import Vapor
 import Combine
-import HiveEngine
 import Fluent
+import HiveEngine
+import Vapor
 
 final class GameManager {
-	private var sessions: [Match.ID: GameSession] = [:]
+	private var sessions: [Match.IDValue: Game.Session] = [:]
 
-	init() {
-	}
+	init() {}
 
-	// MARK: REST
+	// MARK: Managing Players
 
-	func add(_ match: Match, on conn: DatabaseConnectable) throws -> EventLoopFuture<Match> {
+	func add(_ match: Match, on req: Request) throws -> EventLoopFuture<Match> {
 		guard let matchId = try? match.requireID(), let game = Game(match: match) else {
 			throw Abort(.internalServerError, reason: "Cannot add match without ID to GameManager.")
 		}
 
-		self.sessions[matchId] = GameSession(game: game)
-		return Future.map(on: conn) { match }
+		self.sessions[matchId] = Game.Session(game: game)
+		return req.eventLoop.makeSucceededFuture(match)
 	}
 
 	func add(
-		user userId: User.ID,
-		to matchId: Match.ID,
-		on conn: DatabaseConnectable
-	) throws -> EventLoopFuture<JoinMatchResponse> {
+		user userId: User.IDValue,
+		to matchId: Match.IDValue,
+		on req: Request
+	) throws -> EventLoopFuture<Match.Join.Response> {
 		guard let session = sessions[matchId] else {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
 		}
 
 		guard session.game.hostId != userId else {
-			return try reconnect(host: userId, to: matchId, session: session, on: conn)
+			return try reconnect(host: userId, to: matchId, session: session, on: req)
 		}
 
 		guard session.game.opponentId == nil || session.game.opponentId == userId else {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
 		}
 
-		return try add(opponentId: userId, to: matchId, session: session, on: conn)
+		return try add(opponentId: userId, to: matchId, session: session, on: req)
 	}
 
 	private func reconnect(
-		host: User.ID,
-		to matchId: Match.ID,
-		session: GameSession,
-		on conn: DatabaseConnectable
-	) throws -> EventLoopFuture<JoinMatchResponse> {
+		host: User.IDValue,
+		to matchId: Match.IDValue,
+		session: Game.Session,
+		on req: Request
+	) throws -> EventLoopFuture<Match.Join.Response> {
 		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
-		let playerIds: [User.ID] = [session.game.hostId, session.game.opponentId].compactMap { $0 }
-
-		return Match.find(matchId, on: conn)
+		return Match.find(matchId, on: req.db)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
 			.flatMap {
-				User.query(on: conn)
-					.filter(\.id ~~ playerIds)
+				User.query(on: req.db)
+					.filter(\.$id ~~ [session.game.hostId, session.game.opponentId].compactMap { $0 })
 					.all()
-					.and(result: $0)
+					.and(value: $0)
 			}
-			.map { users, match in
+			.flatMapThrowing { users, match in
 				guard let host = users.first(where: { $0.id == session.game.hostId }) else {
 					throw Abort(
 						.badRequest,
@@ -73,27 +70,27 @@ final class GameManager {
 				}
 
 				let opponent = users.first(where: { $0.id == session.game.opponentId })
-				return try JoinMatchResponse(from: match, withHost: host, withOpponent: opponent)
+				return try Match.Join.Response(from: match, withHost: host, withOpponent: opponent)
 			}
 	}
 
 	private func add(
-		opponentId: User.ID,
-		to matchId: Match.ID,
-		session: GameSession,
-		on conn: DatabaseConnectable
-	) throws -> EventLoopFuture<JoinMatchResponse> {
+		opponentId: User.IDValue,
+		to matchId: Match.IDValue,
+		session: Game.Session,
+		on req: Request
+	) throws -> EventLoopFuture<Match.Join.Response> {
 		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
-		return Match.find(matchId, on: conn)
-			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
-			.flatMap { $0.addOpponent(opponentId, on: conn) }
+		return Match.find(matchId, on: req.db)
+			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(matchId)"))
+			.flatMap { $0.add(opponent: opponentId, on: req) }
 			.flatMap {
-				User.query(on: conn)
-					.filter(\.id ~~ [session.game.hostId, opponentId])
+				User.query(on: req.db)
+					.filter(\.$id ~~ [session.game.hostId, opponentId])
 					.all()
-					.and(result: $0)
+					.and(value: $0)
 			}
-			.map { [weak self] users, match in
+			.flatMapThrowing { users, match in
 				guard let host = users.first(where: { $0.id == session.game.hostId }),
 					let opponent = users.first(where: { $0.id == opponentId }) else {
 						throw Abort(
@@ -102,16 +99,16 @@ final class GameManager {
 						)
 				}
 
-				self?.sessions[matchId]?.game.opponentId = opponentId
-				self?.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponentId))
-				return try JoinMatchResponse(from: match, withHost: host, withOpponent: opponent)
+				self.sessions[matchId]?.game.opponentId = opponentId
+//				self.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponentId))
+				return try Match.Join.Response(from: match, withHost: host, withOpponent: opponent)
 			}
 	}
 
 	func remove(
-		opponent: User.ID,
-		from matchId: Match.ID,
-		on conn: DatabaseConnectable
+		opponent: User.IDValue,
+		from matchId: Match.IDValue,
+		on req: Request
 	) throws -> EventLoopFuture<HTTPResponseStatus> {
 		guard let session = sessions[matchId] else {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
@@ -121,84 +118,74 @@ final class GameManager {
 			throw Abort(.badRequest, reason: #"Cannot leave match \#(matchId) you are not a part of"#)
 		}
 
-		return Match.find(matchId, on: conn)
-			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
-			.flatMap { $0.removeOpponent(opponent, on: conn) }
+		return Match.find(matchId, on: req.db)
+			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(matchId)"))
+			.flatMap { $0.remove(opponent: opponent, on: req) }
 			.map { [weak self] _ in
 				self?.sessions[matchId]?.game.opponentId = nil
-				self?.sessions[matchId]?.host?.webSocket.send(response: .playerLeft(opponent))
+//				self?.sessions[matchId]?.host?.webSocket.send(response: .playerLeft(opponent))
 				return .ok
 			}
 	}
 
-	func delete(match matchId: Match.ID, on conn: DatabaseConnectable) throws -> EventLoopFuture<HTTPResponseStatus> {
-		Match.find(matchId, on: conn)
-			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
-			.flatMap { $0.delete(on: conn) }
-			.transform(to: .ok)
+	// MARK: Game Flow
+
+	func startMatch(context: WebSocketContext, session: Game.Session) throws {
+		guard !session.game.hasStarted else {
+			throw Abort(.internalServerError, reason: #"Cannot start match "\#(session.game.id)" that already started"#)
+		}
+
+		Match.find(session.game.id, on: context.request.db)
+			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(session.game.id)"))
+			.flatMapThrowing { try $0.begin(on: context.request).wait() }
+			.whenFailure { _ in
+//				self?.handle(error: .failedToStartMatch, userId: session.game.hostId, session: session)
+//				if let opponent = session.game.opponentId {
+//					self?.handle(error: .failedToStartMatch, userId: opponent, session: session)
+//				}
+			}
 	}
 
-	func endMatch(context: WebSocketContext, session: GameSession) throws {
+	func endMatch(context: WebSocketContext, session: Game.Session) throws {
 		guard session.game.hasEnded else {
 			throw Abort(.internalServerError, reason: #"Cannot end match "\#(session.game.id)" before game has ended"#)
 		}
 
 		sessions[session.game.id] = nil
 
-		Match.find(session.game.id, on: context.request)
+		Match.find(session.game.id, on: context.request.db)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
-			.flatMap { try $0.end(winner: session.game.winner, on: context.request) }
-			.whenFailure { [weak self] _ in
-				self?.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
-				if let opponent = session.game.opponentId {
-					self?.handle(error: .failedToEndMatch, userId: opponent, session: session)
-				}
+			.flatMapThrowing { try $0.end(winner: session.game.winner, on: context.request).wait() }
+			.whenFailure { _ in
+//				self.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
+//				if let opponent = session.game.opponentId {
+//					self.handle(error: .failedToEndMatch, userId: opponent, session: session)
+//				}
 			}
 	}
 
-	func startMatch(context: WebSocketContext, session: GameSession) throws {
-		guard session.game.hasStarted else {
-			throw Abort(.internalServerError, reason: #"Cannot start match "\#(session.game.id)" that already started"#)
-		}
-
-		Match.find(session.game.id, on: context.request)
-			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
-			.flatMap { try $0.begin(on: context.request) }
-			.whenFailure { [weak self] _ in
-				self?.handle(error: .failedToStartMatch, userId: session.game.hostId, session: session)
-				if let opponent = session.game.opponentId {
-					self?.handle(error: .failedToStartMatch, userId: opponent, session: session)
-				}
-			}
-	}
-
-	func forfeitMatch(winner: User.ID, context: WebSocketContext, session: GameSession) throws {
+	func forfeitMatch(winner: User.IDValue, context: WebSocketContext, session: Game.Session) throws {
 		guard session.game.hasStarted else {
 			throw Abort(.internalServerError, reason: #"Cannot end match "\#(session.game.id)" before game has ended"#)
 		}
 
 		sessions[session.game.id] = nil
 
-		Match.find(session.game.id, on: context.request)
+		Match.find(session.game.id, on: context.request.db)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
-			.flatMap { try $0.end(winner: winner, on: context.request) }
-			.whenFailure { [weak self] _ in
-				self?.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
-				if let opponent = session.game.opponentId {
-					self?.handle(error: .failedToEndMatch, userId: opponent, session: session)
-				}
+			.flatMapThrowing { try $0.end(winner: winner, on: context.request).wait() }
+			.whenFailure { _ in
+//				self?.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
+//				if let opponent = session.game.opponentId {
+//					self?.handle(error: .failedToEndMatch, userId: opponent, session: session)
+//				}
 			}
 	}
 
-	func updateOptions(
-		matchId: Match.ID,
-		options: Set<Match.Option>,
-		gameOptions: Set<GameState.Option>,
-		on conn: DatabaseConnectable
-	) throws -> EventLoopFuture<HTTPResponseStatus> {
-		Match.find(matchId, on: conn)
-			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
-			.flatMap { $0.updateOptions(options: options, gameOptions: gameOptions, on: conn) }
+	func delete(match matchId: Match.IDValue, on req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
+		Match.find(matchId, on: req.db)
+			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(matchId)"))
+			.flatMap { $0.delete(on: req.db) }
 			.transform(to: .ok)
 	}
 

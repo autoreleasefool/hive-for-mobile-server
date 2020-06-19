@@ -32,7 +32,6 @@ struct UserController {
 	func details(req: Request) throws -> EventLoopFuture<User.Details> {
 		User.find(req.parameters.get(Parameter.user.rawValue), on: req.db)
 			.unwrap(or: Abort(.notFound))
-			.flatMapThrowing { try User.Details(from: $0) }
 			.flatMap {
 				Match.query(on: req.db)
 					.filter(\.$status ~~ [.active, .ended])

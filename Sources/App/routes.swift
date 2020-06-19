@@ -8,18 +8,15 @@
 
 import Vapor
 
-// let gameManager = GameManager()
+ let gameManager = GameManager()
 
 func routes(_ app: Application) throws {
 	app.get { _ in
 		"It works!"
 	}
 
-	// try app.register(collection: UserController())
-
-	// let apiRouter = router.grouped("api")
-	// try apiRouter.register(collection: UserController())
-	// try apiRouter.register(collection: MatchController(gameManager: gameManager))
+	try app.register(collection: UserController())
+	try app.register(collection: MatchController(gameManager: gameManager))
 }
 
 // func sockets(_ wss: NIOWebSocketServer) {

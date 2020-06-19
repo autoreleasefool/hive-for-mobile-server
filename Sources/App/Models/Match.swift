@@ -108,104 +108,108 @@ extension Match {
 	}
 }
 
-// // MARK: - Modifiers
+// MARK: - Modifiers
 
-// extension Match {
-// 	func addOpponent(_ opponent: User.ID, on conn: DatabaseConnectable) -> Future<Match> {
-// 		self.opponentId = opponent
-// 		return self.update(on: conn)
-// 	}
+extension Match {
+	func add(opponent: User.IDValue, on req: Request) -> EventLoopFuture<Match> {
+		self.opponentId = opponent
+		return self.update(on: req.db)
+			.map { self }
+	}
 
-// 	func removeOpponent(_ opponent: User.ID, on conn: DatabaseConnectable) -> Future<Match> {
-// 		self.opponentId = nil
-// 		return self.update(on: conn)
-// 	}
+	func remove(opponent: User.IDValue, on req: Request) -> EventLoopFuture<Match> {
+		guard self.opponentId == opponent else { return req.eventLoop.makeSucceededFuture(self) }
+		self.opponentId = nil
+		return self.update(on: req.db)
+			.map { self }
+	}
 
-// 	func begin(on conn: DatabaseConnectable) throws -> Future<Match> {
-// 		let matchId = try requireID()
+	func begin(on req: Request) throws -> EventLoopFuture<Match> {
+		let matchId = try requireID()
 
-// 		guard status == .notStarted else {
-// 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to begin (\#(status))"#)
-// 		}
+		guard status == .notStarted else {
+			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to begin (\#(status))"#)
+		}
 
-// 		guard opponentId != nil else {
-// 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
-// 		}
+		guard opponentId != nil else {
+			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
+		}
 
-// 		self.status = .active
-// 		return self.update(on: conn)
-// 	}
+		self.status = .active
+		return self.update(on: req.db)
+			.map { self }
+	}
 
-// 	func end(winner: User.ID?, on conn: DatabaseConnectable) throws -> Future<Match> {
-// 		let matchId = try requireID()
+	func end(winner: User.IDValue?, on req: Request) throws -> EventLoopFuture<Match> {
+		let matchId = try requireID()
 
-// 		guard status == .active else {
-// 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to end (\#(status)"#)
-// 		}
+		guard status == .active else {
+			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to end (\#(status))"#)
+		}
 
-// 		guard let opponentId = opponentId else {
-// 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
-// 		}
+		guard let opponentId = opponentId else {
+			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
+		}
 
-// 		self.winner = winner
-// 		status = .ended
-// 		duration = createdAt?.distance(to: Date())
+		self.winner = winner
+		status = .ended
+		duration = createdAt?.distance(to: Date())
 
-// 		return self.update(on: conn)
-// 			.flatMap { _ in
-// 				User.query(on: conn)
-// 					.filter(\.id ~~ [self.hostId, opponentId])
-// 					.all()
-// 			}
-// 			.flatMap { users in
-// 				guard let host = users.first(where: { $0.id == self.hostId }),
-// 					let opponent = users.first(where: { $0.id == opponentId }) else {
-// 						throw Abort(
-// 							.badRequest,
-// 							reason: "Could not find all users (\(self.hostId), \(opponentId))"
-// 						)
-// 				}
+		return self.update(on: req.db)
+			.flatMap {
+				User.query(on: req.db)
+					.filter(\.$id ~~ [self.hostId, opponentId])
+					.all()
+			}
+			.flatMap { users in
+				guard let host = users.first(where: { $0.id == self.hostId }),
+					let opponent = users.first(where: { $0.id == opponentId }) else {
+					return req.eventLoop.makeFailedFuture(Abort(
+						.badRequest,
+						reason: "Could not find all users (\(self.hostId), \(opponentId))"
+					))
+				}
 
-// 				// Update Elos and ignore any errors
-// 				return self.resolveNewElos(
-// 					host: host,
-// 					opponent: opponent,
-// 					winner: winner,
-// 					on: conn
-// 				).mapIfError { _ in }
-// 			}
-// 			.mapIfError { _ in }
-// 			.map { self }
-// 	}
+				// Update ELOs and ignore any errors
+				return self.resolveNewElos(
+					host: host,
+					opponent: opponent,
+					winner: winner,
+					on: req
+				)
+			}
+			.map { self }
+	}
 
-// 	func resolveNewElos(
-// 		host: User,
-// 		opponent: User,
-// 		winner: User.ID?,
-// 		on conn: DatabaseConnectable
-// 	) -> Future<Void> {
-// 		guard let hostId = try? host.requireID() else {
-// 			print("Failed to find ID of host to resolve Elos")
-// 			return conn.eventLoop.newSucceededFuture(result: ())
-// 		}
+	func resolveNewElos(
+		host: User,
+		opponent: User,
+		winner: User.IDValue?,
+		on req: Request
+	) -> EventLoopFuture<Void> {
+		guard let hostId = try? host.requireID() else {
+			print("Failed to find ID of host to resolve Elos")
+			return req.eventLoop.makeSucceededFuture(())
+		}
 
-// 		let hostUpdate: EventLoopFuture<User>
-// 		let opponentUpdate: EventLoopFuture<User>
-// 		if winner == nil {
-// 			hostUpdate = host.recordDraw(againstPlayerRated: opponent.elo, on: conn)
-// 			opponentUpdate = opponent.recordDraw(againstPlayerRated: host.elo, on: conn)
-// 		} else if winner == hostId {
-// 			hostUpdate = host.recordWin(againstPlayerRated: opponent.elo, on: conn)
-// 			opponentUpdate = opponent.recordLoss(againstPlayerRated: host.elo, on: conn)
-// 		} else {
-// 			hostUpdate = host.recordLoss(againstPlayerRated: opponent.elo, on: conn)
-// 			opponentUpdate = opponent.recordWin(againstPlayerRated: host.elo, on: conn)
-// 		}
+		let hostUpdate: EventLoopFuture<User>
+		let opponentUpdate: EventLoopFuture<User>
+		if winner == nil {
+			hostUpdate = host.recordDraw(againstPlayerRated: opponent.elo, on: req)
+			opponentUpdate = opponent.recordDraw(againstPlayerRated: host.elo, on: req)
+		} else if winner == hostId {
+			hostUpdate = host.recordWin(againstPlayerRated: opponent.elo, on: req)
+			opponentUpdate = opponent.recordLoss(againstPlayerRated: host.elo, on: req)
+		} else {
+			hostUpdate = host.recordLoss(againstPlayerRated: opponent.elo, on: req)
+			opponentUpdate = opponent.recordWin(againstPlayerRated: host.elo, on: req)
+		}
 
-// 		return hostUpdate
-// 			.flatMap { _ in opponentUpdate }
-// 			.transform(to: ())
-// 	}
+		return hostUpdate
+			.and(opponentUpdate)
+			.transform(to: ())
+	}
+}
 
 // 	func updateOptions(
 // 		options: Set<Match.Option>,

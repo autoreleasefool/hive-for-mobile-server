@@ -6,16 +6,20 @@
 //  Copyright © 2020 Joseph Roque. All rights reserved.
 //
 
-//import Vapor
-//
-//final class AdminMiddleware: Middleware {
-//	func respond(to req: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
-//		let user = try req.auth.require(User.self)
-//
-//		guard user.isAdmin else {
-//			throw Abort(.unauthorized)
-//		}
-//
-//		return try next.respond(to: req)
-//	}
-//}
+import Vapor
+
+final class AdminMiddleware: Middleware {
+	func respond(to req: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
+		do {
+			let user = try req.auth.require(User.self)
+
+			guard user.isAdmin else {
+				throw Abort(.unauthorized)
+			}
+
+			return next.respond(to: req)
+		} catch {
+			return req.eventLoop.makeFailedFuture(error)
+		}
+	}
+}

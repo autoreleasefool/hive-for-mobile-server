@@ -148,7 +148,7 @@ extension UserController: RouteCollection {
 		tokenProtected.get("validate", use: validate)
 
 		#warning("TODO: remove, or guard behind admin")
-		let adminProtected = users // users.grouped(AdminMiddleware())
+		let adminProtected = users.grouped(AdminMiddleware())
 		adminProtected.get(use: index)
 	}
 }

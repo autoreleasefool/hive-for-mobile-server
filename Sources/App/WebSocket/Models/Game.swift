@@ -9,9 +9,9 @@ import Vapor
 import HiveEngine
 
 class Game {
-	let id: Match.ID
-	var hostId: User.ID
-	var opponentId: User.ID?
+	let id: Match.IDValue
+	var hostId: User.IDValue
+	var opponentId: User.IDValue?
 
 	var hostReady: Bool = false
 	var opponentReady: Bool = false
@@ -28,7 +28,7 @@ class Game {
 		state?.isEndGame ?? false
 	}
 
-	var winner: User.ID? {
+	var winner: User.IDValue? {
 		guard let winner = state?.winner else { return nil }
 		if winner.count == 2 {
 			return nil
@@ -41,7 +41,13 @@ class Game {
 		}
 	}
 
-	init(id: Match.ID, hostId: User.ID, opponentId: User.ID? = nil, options: String, gameOptions: String) {
+	init(
+		id: Match.IDValue,
+		hostId: User.IDValue,
+		opponentId: User.IDValue? = nil,
+		options: String,
+		gameOptions: String
+	) {
 		self.id = id
 		self.hostId = hostId
 		self.opponentId = opponentId
@@ -60,7 +66,7 @@ class Game {
 		)
 	}
 
-	func togglePlayerReady(player: User.ID) {
+	func togglePlayerReady(player: User.IDValue) {
 		switch player {
 		case hostId: hostReady.toggle()
 		case opponentId: opponentReady.toggle()
@@ -68,7 +74,7 @@ class Game {
 		}
 	}
 
-	func isPlayerReady(player: User.ID) -> Bool {
+	func isPlayerReady(player: User.IDValue) -> Bool {
 		switch player {
 		case hostId: return hostReady
 		case opponentId: return opponentReady
@@ -76,7 +82,7 @@ class Game {
 		}
 	}
 
-	func isPlayerTurn(player: User.ID) -> Bool {
+	func isPlayerTurn(player: User.IDValue) -> Bool {
 		switch player {
 		case hostId: return options.contains(.hostIsWhite)
 			? state?.currentPlayer == .white
@@ -88,7 +94,7 @@ class Game {
 		}
 	}
 
-	func opponent(for userId: User.ID) -> User.ID? {
+	func opponent(for userId: User.IDValue) -> User.IDValue? {
 		switch userId {
 		case hostId: return opponentId
 		case opponentId: return hostId
@@ -96,57 +102,65 @@ class Game {
 		}
 	}
 
-	func setOption(_ option: GameClientMessage.Option, to value: Bool) {
-		switch option {
-		case .gameOption(let option):
-			gameOptions.set(option, to: value)
-		case .matchOption(let option):
-			options.set(option, to: value)
+//	func setOption(_ option: GameClientMessage.Option, to value: Bool) {
+//		switch option {
+//		case .gameOption(let option):
+//			gameOptions.set(option, to: value)
+//		case .matchOption(let option):
+//			options.set(option, to: value)
+//		}
+//	}
+ }
+
+// MARK: - GameSession
+
+extension Game {
+	class Session {
+		let game: Game
+		var host: WebSocketContext?
+		var opponent: WebSocketContext?
+
+		init(game: Game) {
+			self.game = game
+		}
+
+		func contains(_ userId: User.IDValue) -> Bool {
+			[game.hostId, game.opponentId].contains(userId)
+		}
+
+		func add(context: WebSocketContext, forUser userId: User.IDValue) {
+			if userId == game.hostId {
+				host = context
+			} else if userId == game.opponentId {
+				opponent = context
+			}
+		}
+
+		func context(forUser userId: User.IDValue) -> WebSocketContext? {
+			if userId == game.hostId {
+				return host
+			} else if userId == game.opponentId {
+				return opponent
+			}
+
+			return nil
+		}
+
+		func opponentContext(forUser userId: User.IDValue) -> WebSocketContext? {
+			if userId == game.hostId {
+				return opponent
+			} else if userId == game.opponentId {
+				return host
+			}
+
+			return nil
 		}
 	}
 }
+
+// MARK: - WebSocketContext
 
 struct WebSocketContext {
 	let webSocket: WebSocket
 	let request: Request
-}
-
-class GameSession {
-	let game: Game
-	var host: WebSocketContext?
-	var opponent: WebSocketContext?
-
-	init(game: Game) {
-		self.game = game
-	}
-
-	func contains(_ userId: User.ID) -> Bool {
-		game.hostId == userId || game.opponentId == userId
-	}
-
-	func add(context: WebSocketContext, forUser userId: User.ID) {
-		if userId == game.hostId {
-			host = context
-		} else if userId == game.opponentId {
-			opponent = context
-		}
-	}
-
-	func context(forUser userId: User.ID) -> WebSocketContext? {
-		if userId == game.hostId {
-			return host
-		} else if userId == game.opponentId {
-			return opponent
-		}
-		return nil
-	}
-
-	func opponentContext(forUser userId: User.ID) -> WebSocketContext? {
-		if userId == game.hostId {
-			return opponent
-		} else if userId == game.hostId {
-			return host
-		}
-		return nil
-	}
 }

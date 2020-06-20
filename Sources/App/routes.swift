@@ -19,17 +19,15 @@ func routes(_ app: Application) throws {
 	try app.register(collection: MatchController(gameManager: gameManager))
 }
 
-// func sockets(_ wss: NIOWebSocketServer) {
-// 	let responder = WebSocketResponder(
-// 		shouldUpgrade: { _ in return [:] },
-// 		onUpgrade: { ws, req in
-// 			WebSocketAuthenticationMiddleware.handle(
-// 				webSocket: ws,
-// 				request: req,
-// 				handler: gameManager.joinMatch
-// 			)
-// 		}
-// 	)
-// 	let route: Route<WebSocketResponder> = .init(path: [Match.parameter, "play"], output: responder)
-// 	wss.register(route: route)
-// }
+func socketRoutes(_ app: Application) {
+	let tokenProtected = app.grouped(Token.authenticator())
+		.grouped(Token.guardMiddleware())
+
+	tokenProtected.webSocket(.parameter(MatchController.Parameter.match.rawValue), "play") { req, ws in
+		guard let user = try? req.auth.require(User.self) else {
+			return
+		}
+
+		try? gameManager.joinMatch(on: req, ws: ws, user: user)
+	}
+}

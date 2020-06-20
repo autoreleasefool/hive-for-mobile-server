@@ -26,14 +26,5 @@ public func configure(_ app: Application) throws {
 	try app.autoMigrate().wait()
 
 	try routes(app)
-
-	// Register WebSocket routes to the router
-	// let wss = WebSocketContainer.createWebSocket()
-	// sockets(wss)
-	// services.register(wss, as: WebSocketServer.self)
-
-	// Register middleware
-	// var middlewares = MiddlewareConfig() // Create _empty_ middleware config
-	// middlewares.use(ErrorMiddleware.self) // Catches errors and converts to HTTP response
-	// services.register(middlewares)
+	try socketRoutes(app)
 }

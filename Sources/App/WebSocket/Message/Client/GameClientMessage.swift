@@ -6,8 +6,8 @@
 //  Copyright © 2020 Joseph Roque. All rights reserved.
 //
 
-import Vapor
-import HiveEngine
+ import Vapor
+ import HiveEngine
 
 enum GameClientMessage {
 	enum Option {

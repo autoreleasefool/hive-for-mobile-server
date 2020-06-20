@@ -23,13 +23,13 @@ enum GameServerResponse {
 	}
 
 	case state(GameState)
-	case gameOver(User.ID?)
+	case gameOver(User.IDValue?)
 	case setOption(Option, Bool)
-	case setPlayerReady(User.ID, Bool)
-	case message(User.ID, String)
-	case forfeit(User.ID)
-	case playerJoined(User.ID)
-	case playerLeft(User.ID)
+	case setPlayerReady(User.IDValue, Bool)
+	case message(User.IDValue, String)
+	case forfeit(User.IDValue)
+	case playerJoined(User.IDValue)
+	case playerLeft(User.IDValue)
 }
 
 extension WebSocket {
@@ -55,7 +55,7 @@ extension WebSocket {
 		}
 	}
 
-	func send(error: GameServerResponseError, fromUser: User.ID?) {
+	func send(error: GameServerResponseError, fromUser: User.IDValue?) {
 		self.send("ERR \(fromUser?.description ?? "null") \(error.errorCode) \(error.errorDescription)")
 	}
 }

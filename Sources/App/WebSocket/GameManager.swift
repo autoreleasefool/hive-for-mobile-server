@@ -100,7 +100,7 @@ final class GameManager {
 				}
 
 				self.sessions[matchId]?.game.opponentId = opponentId
-//				self.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponentId))
+				self.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponentId))
 				return try Match.Join.Response(from: match, withHost: host, withOpponent: opponent)
 			}
 	}
@@ -123,7 +123,7 @@ final class GameManager {
 			.flatMap { $0.remove(opponent: opponent, on: req) }
 			.map { [weak self] _ in
 				self?.sessions[matchId]?.game.opponentId = nil
-//				self?.sessions[matchId]?.host?.webSocket.send(response: .playerLeft(opponent))
+				self?.sessions[matchId]?.host?.webSocket.send(response: .playerLeft(opponent))
 				return .ok
 			}
 	}
@@ -139,10 +139,10 @@ final class GameManager {
 			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(session.game.id)"))
 			.flatMapThrowing { try $0.begin(on: context.request).wait() }
 			.whenFailure { _ in
-//				self?.handle(error: .failedToStartMatch, userId: session.game.hostId, session: session)
-//				if let opponent = session.game.opponentId {
-//					self?.handle(error: .failedToStartMatch, userId: opponent, session: session)
-//				}
+				self.handle(error: .failedToStartMatch, userId: session.game.hostId, session: session)
+				if let opponent = session.game.opponentId {
+					self.handle(error: .failedToStartMatch, userId: opponent, session: session)
+				}
 			}
 	}
 
@@ -157,10 +157,10 @@ final class GameManager {
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
 			.flatMapThrowing { try $0.end(winner: session.game.winner, on: context.request).wait() }
 			.whenFailure { _ in
-//				self.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
-//				if let opponent = session.game.opponentId {
-//					self.handle(error: .failedToEndMatch, userId: opponent, session: session)
-//				}
+				self.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
+				if let opponent = session.game.opponentId {
+					self.handle(error: .failedToEndMatch, userId: opponent, session: session)
+				}
 			}
 	}
 
@@ -175,10 +175,10 @@ final class GameManager {
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
 			.flatMapThrowing { try $0.end(winner: winner, on: context.request).wait() }
 			.whenFailure { _ in
-//				self?.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
-//				if let opponent = session.game.opponentId {
-//					self?.handle(error: .failedToEndMatch, userId: opponent, session: session)
-//				}
+				self.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
+				if let opponent = session.game.opponentId {
+					self.handle(error: .failedToEndMatch, userId: opponent, session: session)
+				}
 			}
 	}
 
@@ -189,18 +189,30 @@ final class GameManager {
 			.transform(to: .ok)
 	}
 
+	func updateOptions(
+		matchId: Match.IDValue,
+		options: Set<Match.Option>,
+		gameOptions: Set<GameState.Option>,
+		on req: Request
+	) throws -> EventLoopFuture<HTTPResponseStatus> {
+		Match.find(matchId, on: req.db)
+			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
+			.flatMap { $0.updateOptions(options: options, gameOptions: gameOptions, on: req) }
+			.transform(to: .ok)
+	}
+
 	// MARK: WebSocket
 
-	func joinMatch(_ ws: WebSocket, _ request: Request, _ user: User) throws {
+	func joinMatch(on req: Request, ws: WebSocket, user: User) throws {
 		let userId = try user.requireID()
-		let wsContext = WebSocketContext(webSocket: ws, request: request)
+		let wsContext = WebSocketContext(webSocket: ws, request: req)
 
-		guard let rawMatchId = request.parameters.rawValues(for: Match.self).first,
-			let matchId = UUID(rawMatchId) else {
-			throw Abort(.badRequest, reason: "Match ID could not be determined")
+		guard let rawMatchId = req.parameters.get(MatchController.Parameter.match.rawValue),
+			let matchId = Match.IDValue(uuidString: rawMatchId) else {
+			throw Abort(.badRequest, reason: "Match ID could not be determined from path")
 		}
 
-		self.sessions[matchId]?.add(context: wsContext, forUser: userId)
+		sessions[matchId]?.add(context: wsContext, forUser: userId)
 
 		#warning("FIXME: need to keep clients in sync when one disconnects or encounters error")
 
@@ -217,9 +229,10 @@ final class GameManager {
 
 			self?.handle(text: text, userId: userId, session: session)
 
+			// If the user is rejoining a game in progress, send them commands required to start the game
 			if let opponentId = session.game.opponent(for: userId), let state = session.game.state {
-				ws.send(response: .setPlayerReady(opponentId, true))
 				ws.send(response: .setPlayerReady(userId, true))
+				ws.send(response: .setPlayerReady(opponentId, true))
 				ws.send(response: .state(state))
 			}
 		}
@@ -229,7 +242,7 @@ final class GameManager {
 // MARK: - GameClientMessage
 
 extension GameManager {
-	private func forfeit(userId: User.ID, session: GameSession) {
+	private func forfeit(userId: User.IDValue, session: Game.Session) {
 		guard let context = session.context(forUser: userId) else {
 			return handle(error: .invalidCommand, userId: userId, session: session)
 		}
@@ -267,7 +280,12 @@ extension GameManager {
 		}
 	}
 
-	private func setOption(option: GameClientMessage.Option, to value: Bool, userId: User.ID, session: GameSession) {
+	private func setOption(
+		option: GameClientMessage.Option,
+		to value: Bool,
+		userId: User.IDValue,
+		session: Game.Session
+	) {
 		guard !session.game.hasStarted, let context = session.context(forUser: userId) else {
 			return handle(error: .invalidCommand, userId: userId, session: session)
 		}
@@ -292,12 +310,12 @@ extension GameManager {
 		}
 	}
 
-	private func sendMessage(message: String, fromUser userId: User.ID, session: GameSession) {
+	private func sendMessage(message: String, fromUser userId: User.IDValue, session: Game.Session) {
 		session.host?.webSocket.send(response: .message(userId, message))
 		session.opponent?.webSocket.send(response: .message(userId, message))
 	}
 
-	private func playMove(movement: RelativeMovement, fromUser userId: User.ID, session: GameSession) {
+	private func playMove(movement: RelativeMovement, fromUser userId: User.IDValue, session: Game.Session) {
 		guard session.game.hasStarted,
 			let state = session.game.state,
 			let context = session.context(forUser: userId) else {
@@ -317,7 +335,7 @@ extension GameManager {
 		}
 
 		let matchMovement = MatchMovement(from: movement, userId: userId, matchId: session.game.id, ordinal: state.move)
-		let promise = matchMovement.save(on: context.request)
+		let promise = matchMovement.save(on: context.request.db)
 
 		promise.whenSuccess { _ in
 			session.host?.webSocket.send(response: .state(state))
@@ -340,7 +358,7 @@ extension GameManager {
 		}
 	}
 
-	private func togglePlayerReady(player: User.ID, session: GameSession) {
+	private func togglePlayerReady(player: User.IDValue, session: Game.Session) {
 		guard !session.game.hasStarted,
 			session.game.opponentId != nil,
 			let context = session.context(forUser: player) else {
@@ -374,7 +392,7 @@ extension GameManager {
 // MARK: - Messages
 
 extension GameManager {
-	private func handle(message: GameClientMessage, userId: User.ID, session: GameSession) {
+	private func handle(message: GameClientMessage, userId: User.IDValue, session: Game.Session) {
 		switch message {
 		case .playerReady:
 			togglePlayerReady(player: userId, session: session)
@@ -389,7 +407,7 @@ extension GameManager {
 		}
 	}
 
-	private func handle(text: String, userId: User.ID, session: GameSession) {
+	private func handle(text: String, userId: User.IDValue, session: Game.Session) {
 		do {
 			let message = try GameClientMessage(from: text)
 			handle(message: message, userId: userId, session: session)
@@ -402,7 +420,7 @@ extension GameManager {
 		}
 	}
 
-	private func handle(error: GameServerResponseError, userId: User.ID, session: GameSession) {
+	private func handle(error: GameServerResponseError, userId: User.IDValue, session: Game.Session) {
 		session.host?.webSocket.send(error: error, fromUser: userId)
 		if error.shouldSendToOpponent {
 			session.opponent?.webSocket.send(error: error, fromUser: userId)

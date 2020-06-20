@@ -102,14 +102,14 @@ class Game {
 		}
 	}
 
-//	func setOption(_ option: GameClientMessage.Option, to value: Bool) {
-//		switch option {
-//		case .gameOption(let option):
-//			gameOptions.set(option, to: value)
-//		case .matchOption(let option):
-//			options.set(option, to: value)
-//		}
-//	}
+	func setOption(_ option: GameClientMessage.Option, to value: Bool) {
+		switch option {
+		case .gameOption(let option):
+			gameOptions.set(option, to: value)
+		case .matchOption(let option):
+			options.set(option, to: value)
+		}
+	}
  }
 
 // MARK: - GameSession

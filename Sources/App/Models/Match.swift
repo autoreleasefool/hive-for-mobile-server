@@ -209,18 +209,18 @@ extension Match {
 			.and(opponentUpdate)
 			.transform(to: ())
 	}
-}
 
-// 	func updateOptions(
-// 		options: Set<Match.Option>,
-// 		gameOptions: Set<GameState.Option>,
-// 		on conn: DatabaseConnectable
-// 	) -> Future<Match> {
-// 		self.options = OptionSet.encode(options)
-// 		self.gameOptions = OptionSet.encode(gameOptions)
-// 		return self.update(on: conn)
-// 	}
-// }
+	func updateOptions(
+		options: Set<Match.Option>,
+		gameOptions: Set<GameState.Option>,
+		on req: Request
+	) -> EventLoopFuture<Match> {
+		self.options = OptionSet.encode(options)
+		self.gameOptions = OptionSet.encode(gameOptions)
+		return self.update(on: req.db)
+			.map { self }
+	}
+}
 
 // MARK: - Details
 

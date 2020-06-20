@@ -10,12 +10,6 @@ import Fluent
 import Vapor
 import HiveEngine
 
-// extension NSNotification.Name {
-// 	enum Match {
-// 		static let DidUpdate = NSNotification.Name("Match.DidUpdate")
-// 	}
-// }
-
 final class Match: Model, Content {
 	static let schema = "matches"
 

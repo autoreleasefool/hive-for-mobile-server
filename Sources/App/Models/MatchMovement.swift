@@ -6,7 +6,6 @@
 //  Copyright © 2020 Joseph Roque. All rights reserved.
 //
 
-
 import Fluent
 import Vapor
 import HiveEngine
@@ -47,7 +46,7 @@ final class MatchMovement: Model, Content {
 	}
 }
 
-// MARK:- Summary
+// MARK: - Summary
 
 extension MatchMovement {
 	struct Summary: Content {

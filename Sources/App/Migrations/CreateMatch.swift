@@ -15,7 +15,7 @@ struct CreateMatch: Migration {
 			.field("host_id", .uuid, .required, .references(User.schema, "id"))
 			.field("opponent_id", .uuid, .references(User.schema, "id"))
 			.field("winner_id", .uuid, .references(User.schema, "id"))
-			.field("gameOptions", .string, .required)
+			.field("game_options", .string, .required)
 			.field("options", .string, .required)
 			.field("created_at", .datetime, .required)
 			.field("duration", .double)

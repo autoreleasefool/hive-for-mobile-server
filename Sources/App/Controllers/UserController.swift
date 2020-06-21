@@ -115,8 +115,11 @@ struct UserController {
 			.transform(to: .ok)
 	}
 
-	func validate(req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
-		req.eventLoop.makeSucceededFuture(.ok)
+	func validate(req: Request) throws -> EventLoopFuture<SessionToken> {
+		let user = try req.auth.require(User.self)
+		let token = try req.auth.require(Token.self)
+		let session = try SessionToken(user: user, token: token)
+		return req.eventLoop.makeSucceededFuture(session)
 	}
 }
 

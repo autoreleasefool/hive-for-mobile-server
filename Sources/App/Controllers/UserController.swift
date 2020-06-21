@@ -104,7 +104,7 @@ struct UserController {
 			.flatMapThrowing { try SessionToken(user: user, token: token) }
 	}
 
-	func logout(req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
+	func logout(req: Request) throws -> EventLoopFuture<User.Logout.Response> {
 		guard let token = req.headers.bearerAuthorization?.token else {
 			throw Abort(.badRequest, reason: "Token must be supplied to logout")
 		}
@@ -112,7 +112,7 @@ struct UserController {
 		return Token.query(on: req.db)
 			.filter(\.$value == token)
 			.delete()
-			.transform(to: .ok)
+			.transform(to: User.Logout.Response(success: true))
 	}
 
 	func validate(req: Request) throws -> EventLoopFuture<SessionToken> {

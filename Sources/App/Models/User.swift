@@ -139,6 +139,18 @@ extension User.Create {
 	}
 }
 
+// MARK: - Logout
+
+extension User {
+	enum Logout {}
+}
+
+extension User.Logout {
+	struct Response: Content {
+		let success: Bool
+	}
+}
+
 // MARK: - Summary
 
 extension User {

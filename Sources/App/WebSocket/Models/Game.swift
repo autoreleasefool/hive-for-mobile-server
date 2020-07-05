@@ -25,19 +25,14 @@ class Game {
 	}
 
 	var hasEnded: Bool {
-		state?.isEndGame ?? false
+		state?.hasGameEnded ?? false
 	}
 
 	var winner: User.IDValue? {
-		guard let winner = state?.winner else { return nil }
-		if winner.count == 2 {
-			return nil
-		}
-
-		switch winner.first {
-		case .white: return options.contains(.hostIsWhite) ? hostId : opponentId
-		case .black: return options.contains(.hostIsWhite) ? opponentId : hostId
-		case .none: return nil
+		switch state?.endState {
+		case .draw, .none: return nil
+		case .playerWins(.black): return options.contains(.hostIsWhite) ? opponentId : hostId
+		case .playerWins(.white): return options.contains(.hostIsWhite) ? hostId : opponentId
 		}
 	}
 

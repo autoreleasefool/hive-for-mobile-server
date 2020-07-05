@@ -340,7 +340,7 @@ extension GameManager {
 		promise.whenSuccess { _ in
 			session.host?.webSocket.send(response: .state(state))
 			session.opponent?.webSocket.send(response: .state(state))
-			if state.isEndGame {
+			if state.hasGameEnded {
 				session.host?.webSocket.send(response: .gameOver(session.game.winner))
 				session.opponent?.webSocket.send(response: .gameOver(session.game.winner))
 			}
@@ -350,7 +350,7 @@ extension GameManager {
 			self?.handle(error: .unknownError(nil), userId: userId, session: session)
 		}
 
-		guard state.isEndGame else { return }
+		guard state.hasGameEnded else { return }
 		do {
 			try endMatch(context: context, session: session)
 		} catch {

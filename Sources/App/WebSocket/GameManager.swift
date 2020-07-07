@@ -52,25 +52,14 @@ final class GameManager {
 		session: Game.Session,
 		on req: Request
 	) throws -> EventLoopFuture<Match.Join.Response> {
-		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
-		return Match.find(matchId, on: req.db)
-			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
-			.flatMap {
-				User.query(on: req.db)
-					.filter(\.$id ~~ [session.game.hostId, session.game.opponentId].compactMap { $0 })
-					.all()
-					.and(value: $0)
-			}
-			.flatMapThrowing { users, match in
-				guard let host = users.first(where: { $0.id == session.game.hostId }) else {
-					throw Abort(
-						.badRequest,
-						reason: "Could not find host (\(session.game.hostId))"
-					)
-				}
-
-				let opponent = users.first(where: { $0.id == session.game.opponentId })
-				return try Match.Join.Response(from: match, withHost: host, withOpponent: opponent)
+		Match.query(on: req.db)
+			.with(\.$host)
+			.with(\.$opponent)
+			.filter(\.$id == matchId)
+			.first()
+			.unwrap(or: Abort(.notFound))
+			.flatMapThrowing {
+				try Match.Join.Response(from: $0, withHost: $0.host, withOpponent: $0.opponent)
 			}
 	}
 
@@ -80,28 +69,20 @@ final class GameManager {
 		session: Game.Session,
 		on req: Request
 	) throws -> EventLoopFuture<Match.Join.Response> {
-		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
-		return Match.find(matchId, on: req.db)
-			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(matchId)"))
-			.flatMap { $0.add(opponent: opponentId, on: req) }
-			.flatMap {
-				User.query(on: req.db)
-					.filter(\.$id ~~ [session.game.hostId, opponentId])
-					.all()
-					.and(value: $0)
-			}
-			.flatMapThrowing { users, match in
-				guard let host = users.first(where: { $0.id == session.game.hostId }),
-					let opponent = users.first(where: { $0.id == opponentId }) else {
-						throw Abort(
-							.badRequest,
-							reason: "Could not find all users (\(session.game.hostId), \(opponentId))"
-						)
-				}
+		User.find(opponentId, on: req.db)
+			.unwrap(or: Abort(.notFound, reason: "User \(opponentId) could not be found"))
+			.flatMap { opponent in
+				Match.query(on: req.db)
+					.filter(\.$id == matchId)
+					.first()
+					.unwrap(or: Abort(.notFound, reason: "Match \(matchId) could not be found"))
+					.flatMap { $0.add(opponent: opponentId, on: req) }
+					.flatMapThrowing {
+						self.sessions[matchId]?.game.opponentId = opponentId
+						self.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponentId))
 
-				self.sessions[matchId]?.game.opponentId = opponentId
-				self.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponentId))
-				return try Match.Join.Response(from: match, withHost: host, withOpponent: opponent)
+						return try Match.Join.Response(from: $0, withHost: $0.host, withOpponent: opponent)
+					}
 			}
 	}
 

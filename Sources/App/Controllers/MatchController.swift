@@ -54,85 +54,61 @@ final class MatchController {
 	// MARK: Details
 
 	func details(req: Request) throws -> EventLoopFuture<Match.Details> {
-		#warning("TODO: users and moves shouldn't be queried separately -- try to hit DB once")
+		guard let idParam = req.parameters.get(Parameter.match.rawValue),
+			let matchId = Match.IDValue(uuidString: idParam) else {
+			throw Abort(.notFound)
+		}
 
-		return Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
+		return Match.query(on: req.db)
+			.with(\.$host)
+			.with(\.$opponent)
+			.with(\.$winner)
+			.with(\.$moves)
+			.filter(\.$id == matchId)
+			.first()
 			.unwrap(or: Abort(.notFound))
-			.flatMap {
-				$0.$moves.query(on: req.db)
-					.sort(\.$ordinal)
-					.all()
-					.and(value: $0)
-			}
-			.flatMap { moves, match in
-				User.query(on: req.db)
-					.filter(\.$id ~~ [match.hostId, match.opponentId].compactMap { $0 })
-					.all()
-					.and(value: moves)
-					.and(value: match)
-			}
-			.flatMapThrowing { usersAndMoves, match in
-				let (users, moves) = usersAndMoves
-				var response = try Match.Details(from: match)
-				response.moves = try moves.map { try MatchMovement.Summary(from: $0) }
-				for user in users {
-					if user.id == match.hostId {
-						response.host = try User.Summary(from: user)
-					} else if user.id == match.opponentId {
-						response.opponent = try User.Summary(from: user)
-					}
-
-					if user.id == match.winner {
-						response.winner = try User.Summary(from: user)
-					}
+			.flatMapThrowing {
+				var response = try Match.Details(from: $0)
+				response.host = try User.Summary(from: $0.host)
+				if let opponent = $0.opponent {
+					response.opponent = try User.Summary(from: opponent)
 				}
+				if let winner = $0.winner {
+					response.winner = try User.Summary(from: winner)
+				}
+				response.moves = try $0.moves.map { try MatchMovement.Summary(from: $0) }
 				return response
 			}
 	}
 
 	func open(req: Request) throws -> EventLoopFuture<[Match.Details]> {
-		#warning("TODO: users shouldn't be queried separately -- try to hit DB once")
-		return Match.query(on: req.db)
+		Match.query(on: req.db)
+			.join(Match.Host.self, on: \Match.$host.$id == \Match.Host.$id, method: .inner)
 			.filter(\.$status == .notStarted)
-			.filter(\.$opponentId == .none)
+			.filter(\.$opponent.$id == .none)
 			.sort(\.$createdAt)
 			.all()
-			.toDetails(req: req)
+			.flatMapThrowing { matches in
+				try matches.map { match in
+					var response = try Match.Details(from: match)
+					response.host = try User.Summary(from: match.joined(Match.Host.self))
+					return response
+				}
+			}
 	}
 
 	func active(req: Request) throws -> EventLoopFuture<[Match.Details]> {
-		#warning("TODO: users shouldn't be queried separately -- try to hit DB once")
-		return Match.query(on: req.db)
+		Match.query(on: req.db)
+			.join(Match.Host.self, on: \Match.$host.$id == \Match.Host.$id, method: .inner)
+			.join(Match.Opponent.self, on: \Match.$opponent.$id == \Match.Opponent.$id, method: .inner)
 			.filter(\.$status == .active)
 			.sort(\.$createdAt)
 			.all()
-			.toDetails(req: req)
-	}
-}
-
-// MARK: - Match.Details
-
-private extension EventLoopFuture where Value == [Match] {
-	func toDetails(req: Request) -> EventLoopFuture<[Match.Details]> {
-		self.flatMap {
-				User.query(on: req.db)
-					.all()
-					.and(value: $0)
-			}
-			.flatMapThrowing { users, matches in
+			.flatMapThrowing { matches in
 				try matches.map { match in
 					var response = try Match.Details(from: match)
-					for user in users {
-						if match.hostId == user.id {
-							response.host = try User.Summary(from: user)
-						} else if match.opponentId == user.id {
-							response.opponent = try  User.Summary(from: user)
-						}
-
-						if match.winner == user.id {
-							response.winner = try  User.Summary(from: user)
-						}
-					}
+					response.host = try User.Summary(from: match.joined(Match.Host.self))
+					response.opponent = try User.Summary(from: match.joined(Match.Opponent.self))
 					return response
 				}
 			}

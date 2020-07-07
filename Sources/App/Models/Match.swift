@@ -16,17 +16,16 @@ final class Match: Model, Content {
 	@ID(key: .id)
 	var id: UUID?
 
-	/// ID of the user that created the match
-	@Field(key: "host_id")
-	var hostId: User.IDValue
+	/// User that created the match
+	@Parent(key: "host_id")
+	var host: User
 
-	/// ID of the user the match is played against
-	@Field(key: "opponent_id")
-	var opponentId: User.IDValue?
+	/// User the match is played against
+	@OptionalParent(key: "opponent_id")
+	var opponent: User?
 
-	/// ID of the winner of the game. `nil` for a tie or game that hasn't ended yet. See `status`
-	@Field(key: "winner_id")
-	var winner: User.IDValue?
+	@OptionalParent(key: "winner_id")
+	var winner: User?
 
 	/// HiveEngine options that were used in the game
 	@Field(key: "game_options")
@@ -54,17 +53,17 @@ final class Match: Model, Content {
 	init() {}
 
 	init(withHost host: User) throws {
-		self.hostId = try host.requireID()
+		self.$host.id = try host.requireID()
 		self.status = .notStarted
 		self.options = OptionSet.encode(Match.Option.defaultSet)
 		self.gameOptions = OptionSet.encode(GameState().options)
 	}
 
 	func opponent(for userId: User.IDValue) -> User.IDValue? {
-		if userId == hostId {
-			return opponentId
-		} else if userId == opponentId {
-			return hostId
+		if userId == self.$host.id {
+			return $opponent.id
+		} else if userId == self.$opponent.id {
+			return $host.id
 		}
 
 		return nil
@@ -106,14 +105,14 @@ extension Match {
 
 extension Match {
 	func add(opponent: User.IDValue, on req: Request) -> EventLoopFuture<Match> {
-		self.opponentId = opponent
+		self.$opponent.id = opponent
 		return self.update(on: req.db)
 			.map { self }
 	}
 
 	func remove(opponent: User.IDValue, on req: Request) -> EventLoopFuture<Match> {
-		guard self.opponentId == opponent else { return req.eventLoop.makeSucceededFuture(self) }
-		self.opponentId = nil
+		guard self.$opponent.id == opponent else { return req.eventLoop.makeSucceededFuture(self) }
+		self.$opponent.id = nil
 		return self.update(on: req.db)
 			.map { self }
 	}
@@ -125,7 +124,7 @@ extension Match {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to begin (\#(status))"#)
 		}
 
-		guard opponentId != nil else {
+		guard $opponent.id != nil else {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
 		}
 
@@ -141,26 +140,24 @@ extension Match {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to end (\#(status))"#)
 		}
 
-		guard let opponentId = opponentId else {
+		guard $opponent.id != nil else {
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
 		}
 
-		self.winner = winner
+		self.$winner.id = winner
 		status = .ended
 		duration = createdAt?.distance(to: Date())
 
 		return self.update(on: req.db)
+			.flatMap { self.$host.load(on: req.db) }
+			.flatMap { self.$opponent.load(on: req.db) }
 			.flatMap {
-				User.query(on: req.db)
-					.filter(\.$id ~~ [self.hostId, opponentId])
-					.all()
-			}
-			.flatMap { users in
-				guard let host = users.first(where: { $0.id == self.hostId }),
-					let opponent = users.first(where: { $0.id == opponentId }) else {
+				guard let host = self.$host.value,
+					let optionalOpponent = self.$opponent.value,
+					let opponent = optionalOpponent else {
 					return req.eventLoop.makeFailedFuture(Abort(
 						.badRequest,
-						reason: "Could not find all users (\(self.hostId), \(opponentId))"
+						reason: "Could not find all users (\(self.$host.id), \(String(describing: self.$opponent.id)))"
 					))
 				}
 
@@ -168,7 +165,7 @@ extension Match {
 				return self.resolveNewElos(
 					host: host,
 					opponent: opponent,
-					winner: winner,
+					winner: self.$winner.id,
 					on: req
 				)
 			}
@@ -244,9 +241,9 @@ extension Match {
 			self.host = try User.Summary(from: host)
 			self.opponent = try User.Summary(from: opponent)
 
-			if match.winner == match.hostId {
+			if match.$winner.id == match.$host.id {
 				self.winner = self.host
-			} else if match.winner == match.opponentId {
+			} else if match.$winner.id == match.$opponent.id {
 				self.winner = self.opponent
 			}
 		}

@@ -39,6 +39,12 @@ final class User: Model, Content {
 	@Field(key: "is_admin")
 	var isAdmin: Bool
 
+	@Children(for: \.$host)
+	var hostedMatches: [Match]
+
+	@Children(for: \.$opponent)
+	var joinedMatches: [Match]
+
 	init() { }
 
 	init(email: String, password: String, displayName: String) {
@@ -65,6 +71,35 @@ final class User: Model, Content {
 		self.elo = elo
 		self.avatarUrl = avatarUrl
 		self.isAdmin = isAdmin
+	}
+
+	var allMatches: [Match] {
+		(hostedMatches + joinedMatches).sorted {
+			switch ($0.createdAt, $1.createdAt) {
+			case (.none, _): return false
+			case (.some, .none): return true
+			case (.some(let left), .some(let right)): return left < right
+			}
+		}
+	}
+}
+
+// MARK: - Aliases
+
+extension Match {
+	final class Host: ModelAlias {
+		static let name = "user_host"
+		let model = User()
+	}
+
+	final class Opponent: ModelAlias {
+		static let name = "user_opponent"
+		let model = User()
+	}
+
+	final class Winner: ModelAlias {
+		static let name = "user_winner"
+		let model = User()
 	}
 }
 
@@ -170,6 +205,18 @@ extension User {
 		init?(from user: User?) throws {
 			guard let user = user else { return nil }
 			try self.init(from: user)
+		}
+
+		init(from host: Match.Host) throws {
+			try self.init(from: host.model)
+		}
+
+		init(from opponent: Match.Opponent) throws {
+			try self.init(from: opponent.model)
+		}
+
+		init(from winner: Match.Winner) throws {
+			try self.init(from: winner.model)
 		}
 	}
 }

@@ -54,8 +54,8 @@ class Game {
 		guard let id = try? match.requireID() else { return nil }
 		self.init(
 			id: id,
-			hostId: match.hostId,
-			opponentId: match.opponentId,
+			hostId: match.$host.id,
+			opponentId: match.$opponent.id,
 			options: match.options,
 			gameOptions: match.gameOptions
 		)

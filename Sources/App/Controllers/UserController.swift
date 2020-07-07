@@ -30,24 +30,24 @@ struct UserController {
 	}
 
 	func details(req: Request) throws -> EventLoopFuture<User.Details> {
-		User.find(req.parameters.get(Parameter.user.rawValue), on: req.db)
+		guard let idParam = req.parameters.get(Parameter.user.rawValue),
+			let userId = User.IDValue(uuidString: idParam) else {
+			throw Abort(.notFound)
+		}
+
+		return User.query(on: req.db)
+			.with(\.$hostedMatches)
+			.with(\.$joinedMatches)
+			.filter(\.$id == userId)
+			.first()
 			.unwrap(or: Abort(.notFound))
-			.flatMap {
-				Match.query(on: req.db)
-					.filter(\.$status ~~ [.active, .ended])
-					.sort(\.$createdAt)
-					.all()
-					.and(value: $0)
-			}
-			.flatMapThrowing { matches, user in
-				#warning("TODO: need to add users/winners to Match.Details")
+			.flatMapThrowing { user in
 				var response = try User.Details(from: user)
-				for match in matches {
-					guard match.hostId == user.id || match.opponentId == user.id else { continue }
-					if match.status == .active {
-						response.activeMatches.append(try Match.Details(from: match))
-					} else if match.status == .ended {
-						response.pastMatches.append(try Match.Details(from: match))
+				for match in user.allMatches {
+					switch match.status {
+					case .active: response.activeMatches.append(try Match.Details(from: match))
+					case .ended: response.pastMatches.append(try Match.Details(from: match))
+					case .notStarted: break
 					}
 				}
 				return response
@@ -150,7 +150,6 @@ extension UserController: RouteCollection {
 		tokenProtected.delete("logout", use: logout)
 		tokenProtected.get("validate", use: validate)
 
-		#warning("TODO: remove, or guard behind admin")
 		let adminProtected = users.grouped(AdminMiddleware())
 		adminProtected.get(use: index)
 	}

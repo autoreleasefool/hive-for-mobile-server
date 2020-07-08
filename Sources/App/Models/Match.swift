@@ -253,7 +253,7 @@ extension Match {
 // MARK: - Create
 
 extension Match {
-	struct Create: Content {
+	struct Create {
 		typealias Response = Match.Details
 	}
 }
@@ -261,7 +261,17 @@ extension Match {
 // MARK: - Join
 
 extension Match {
-	struct Join: Content {
+	struct Join {
 		typealias Response = Match.Details
+	}
+}
+
+// MARK: - Delete
+
+extension Match {
+	struct Delete {
+		struct Response: Content {
+			let success: Bool
+		}
 	}
 }

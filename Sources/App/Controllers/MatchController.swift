@@ -119,12 +119,13 @@ final class MatchController {
 			}
 	}
 
-	func delete(req: Request) throws -> EventLoopFuture<Void> {
+	func delete(req: Request) throws -> EventLoopFuture<Match.Delete.Response> {
 		let matchId = try id(from: req)
 
 		return Match.query(on: req.db)
 			.filter(\.$id == matchId)
 			.delete()
+			.map { Match.Delete.Response(success: true) }
 	}
 }
 

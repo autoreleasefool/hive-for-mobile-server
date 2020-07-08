@@ -20,6 +20,14 @@ final class MatchController {
 		self.gameManager = gameManager
 	}
 
+	private func id(from req: Request) throws -> Match.IDValue {
+		guard let idParam = req.parameters.get(Parameter.match.rawValue),
+			let matchId = Match.IDValue(uuidString: idParam) else {
+			throw Abort(.notFound)
+		}
+		return matchId
+	}
+
 	// MARK: Modify
 
 	func create(req: Request) throws -> EventLoopFuture<Match.Create.Response> {
@@ -54,10 +62,7 @@ final class MatchController {
 	// MARK: Details
 
 	func details(req: Request) throws -> EventLoopFuture<Match.Details> {
-		guard let idParam = req.parameters.get(Parameter.match.rawValue),
-			let matchId = Match.IDValue(uuidString: idParam) else {
-			throw Abort(.notFound)
-		}
+		let matchId = try id(from: req)
 
 		return Match.query(on: req.db)
 			.with(\.$host)
@@ -113,6 +118,14 @@ final class MatchController {
 				}
 			}
 	}
+
+	func delete(req: Request) throws -> EventLoopFuture<Void> {
+		let matchId = try id(from: req)
+
+		return Match.query(on: req.db)
+			.filter(\.$id == matchId)
+			.delete()
+	}
 }
 
 // MARK: - RouteCollection
@@ -137,5 +150,10 @@ extension MatchController: RouteCollection {
 			match.post("join", use: join)
 		}
 
+		// Admin authenticated routes
+		matches.grouped(AdminMiddleware())
+			.group(.parameter(Parameter.match.rawValue)) { match in
+			match.delete("delete", use: delete)
+		}
 	}
 }

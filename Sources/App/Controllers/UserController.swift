@@ -14,6 +14,14 @@ struct UserController {
 		case user = "userID"
 	}
 
+	private func id(from req: Request) throws -> User.IDValue {
+		guard let idParam = req.parameters.get(Parameter.user.rawValue),
+			let userId = User.IDValue(uuidString: idParam) else {
+			throw Abort(.notFound)
+		}
+		return userId
+	}
+
 	// MARK: - Content
 
 	func index(req: Request) throws -> EventLoopFuture<[User.Summary]> {
@@ -30,10 +38,7 @@ struct UserController {
 	}
 
 	func details(req: Request) throws -> EventLoopFuture<User.Details> {
-		guard let idParam = req.parameters.get(Parameter.user.rawValue),
-			let userId = User.IDValue(uuidString: idParam) else {
-			throw Abort(.notFound)
-		}
+		let userId = try id(from: req)
 
 		return User.query(on: req.db)
 			.with(\.$hostedMatches)

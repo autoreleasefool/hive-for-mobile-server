@@ -121,10 +121,9 @@ final class MatchController {
 
 	func delete(req: Request) throws -> EventLoopFuture<Match.Delete.Response> {
 		let matchId = try id(from: req)
-
-		return Match.query(on: req.db)
-			.filter(\.$id == matchId)
-			.delete()
+		return Match.find(matchId, on: req.db)
+			.unwrap(or: Abort(.notFound))
+			.flatMap { $0.delete(on: req.db) }
 			.map { Match.Delete.Response(success: true) }
 	}
 }
@@ -152,7 +151,7 @@ extension MatchController: RouteCollection {
 		}
 
 		// Admin authenticated routes
-		matches.grouped(AdminMiddleware())
+		tokenProtected.grouped(AdminMiddleware())
 			.group(.parameter(Parameter.match.rawValue)) { match in
 			match.delete("delete", use: delete)
 		}

@@ -73,6 +73,7 @@ final class GameManager {
 			.unwrap(or: Abort(.notFound, reason: "User \(opponentId) could not be found"))
 			.flatMap { opponent in
 				Match.query(on: req.db)
+					.with(\.$host)
 					.filter(\.$id == matchId)
 					.first()
 					.unwrap(or: Abort(.notFound, reason: "Match \(matchId) could not be found"))

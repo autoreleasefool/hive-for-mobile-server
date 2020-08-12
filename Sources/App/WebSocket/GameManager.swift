@@ -194,7 +194,12 @@ final class GameManager {
 			throw Abort(.badRequest, reason: "Match ID could not be determined from path")
 		}
 
+		guard sessions[matchId]?.contains(userId) == true else {
+			throw Abort(.forbidden, reason: "Cannot connect to a game you are not a part of")
+		}
+
 		sessions[matchId]?.add(context: wsContext, forUser: userId)
+		sessions[matchId]?.game.playerIsReconnecting(player: userId)
 
 		#warning("FIXME: need to keep clients in sync when one disconnects or encounters error")
 
@@ -212,7 +217,10 @@ final class GameManager {
 			self?.handle(text: text, userId: userId, session: session)
 
 			// If the user is rejoining a game in progress, send them commands required to start the game
-			if let opponentId = session.game.opponent(for: userId), let state = session.game.state {
+			if let opponentId = session.game.opponent(for: userId),
+				let state = session.game.state,
+				!session.game.hasPlayerReconnected(player: userId) {
+				session.game.playerDidReconnect(player: userId)
 				ws.send(response: .setPlayerReady(userId, true))
 				ws.send(response: .setPlayerReady(opponentId, true))
 				ws.send(response: .state(state))

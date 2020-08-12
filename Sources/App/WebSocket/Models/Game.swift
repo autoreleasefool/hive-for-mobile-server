@@ -105,6 +105,30 @@ class Game {
 			options.set(option, to: value)
 		}
 	}
+
+	func playerIsReconnecting(player: User.IDValue) {
+		switch player {
+		case host.id: host.hasReconnectedSuccessfully = false
+		case opponent?.id: opponent?.hasReconnectedSuccessfully = false
+		default: break
+		}
+	}
+
+	func playerDidReconnect(player: User.IDValue) {
+		switch player {
+		case host.id: host.hasReconnectedSuccessfully = true
+		case opponent?.id: opponent?.hasReconnectedSuccessfully = true
+		default: break
+		}
+	}
+
+	func hasPlayerReconnected(player: User.IDValue) -> Bool {
+		switch player {
+		case host.id: return host.hasReconnectedSuccessfully
+		case opponent?.id: return opponent?.hasReconnectedSuccessfully ?? false
+		default: return false
+		}
+	}
  }
 
 // MARK: - GameSession

@@ -10,11 +10,9 @@ import HiveEngine
 
 class Game {
 	let id: Match.IDValue
-	var hostId: User.IDValue
-	var opponentId: User.IDValue?
+	var host: Game.Player
+	var opponent: Game.Player?
 
-	var hostReady: Bool = false
-	var opponentReady: Bool = false
 	var gameOptions: Set<GameState.Option>
 	var options: Set<Match.Option>
 
@@ -31,8 +29,8 @@ class Game {
 	var winner: User.IDValue? {
 		switch state?.endState {
 		case .draw, .none: return nil
-		case .playerWins(.black): return options.contains(.hostIsWhite) ? opponentId : hostId
-		case .playerWins(.white): return options.contains(.hostIsWhite) ? hostId : opponentId
+		case .playerWins(.black): return options.contains(.hostIsWhite) ? opponent?.id : host.id
+		case .playerWins(.white): return options.contains(.hostIsWhite) ? host.id : opponent?.id
 		}
 	}
 
@@ -44,8 +42,10 @@ class Game {
 		gameOptions: String
 	) {
 		self.id = id
-		self.hostId = hostId
-		self.opponentId = opponentId
+		self.host = .init(id: hostId)
+		if let opponentId = opponentId {
+			self.opponent = .init(id: opponentId)
+		}
 		self.options = OptionSet.parse(options)
 		self.gameOptions = OptionSet.parse(gameOptions)
 	}
@@ -63,26 +63,26 @@ class Game {
 
 	func togglePlayerReady(player: User.IDValue) {
 		switch player {
-		case hostId: hostReady.toggle()
-		case opponentId: opponentReady.toggle()
+		case host.id: host.isReady.toggle()
+		case opponent?.id: opponent?.isReady.toggle()
 		default: break
 		}
 	}
 
 	func isPlayerReady(player: User.IDValue) -> Bool {
 		switch player {
-		case hostId: return hostReady
-		case opponentId: return opponentReady
+		case host.id: return host.isReady
+		case opponent?.id: return opponent?.isReady ?? false
 		default: return false
 		}
 	}
 
 	func isPlayerTurn(player: User.IDValue) -> Bool {
 		switch player {
-		case hostId: return options.contains(.hostIsWhite)
+		case host.id: return options.contains(.hostIsWhite)
 			? state?.currentPlayer == .white
 			: state?.currentPlayer == .black
-		case opponentId: return options.contains(.hostIsWhite)
+		case opponent?.id: return options.contains(.hostIsWhite)
 			? state?.currentPlayer == .black
 			: state?.currentPlayer == .white
 		default: return false
@@ -91,8 +91,8 @@ class Game {
 
 	func opponent(for userId: User.IDValue) -> User.IDValue? {
 		switch userId {
-		case hostId: return opponentId
-		case opponentId: return hostId
+		case host.id: return opponent?.id
+		case opponent?.id: return host.id
 		default: return nil
 		}
 	}
@@ -120,36 +120,42 @@ extension Game {
 		}
 
 		func contains(_ userId: User.IDValue) -> Bool {
-			[game.hostId, game.opponentId].contains(userId)
+			game.host.id == userId || game.opponent?.id == userId
 		}
 
 		func add(context: WebSocketContext, forUser userId: User.IDValue) {
-			if userId == game.hostId {
-				host = context
-			} else if userId == game.opponentId {
-				opponent = context
+			switch userId {
+			case game.host.id: host = context
+			case game.opponent?.id: opponent = context
+			default: break
 			}
 		}
 
 		func context(forUser userId: User.IDValue) -> WebSocketContext? {
-			if userId == game.hostId {
-				return host
-			} else if userId == game.opponentId {
-				return opponent
+			switch userId {
+			case game.host.id: return host
+			case game.opponent?.id: return opponent
+			default: return nil
 			}
-
-			return nil
 		}
 
 		func opponentContext(forUser userId: User.IDValue) -> WebSocketContext? {
-			if userId == game.hostId {
-				return opponent
-			} else if userId == game.opponentId {
-				return host
+			switch userId {
+			case game.host.id: return opponent
+			case game.opponent?.id: return host
+			default: return nil
 			}
-
-			return nil
 		}
+	}
+}
+
+// MARK: User state
+
+extension Game {
+	struct Player {
+		let id: User.IDValue
+		var isReady: Bool = false
+		var hasReconnectedSuccessfully = false
 	}
 }
 

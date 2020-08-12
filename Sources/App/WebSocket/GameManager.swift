@@ -35,11 +35,11 @@ final class GameManager {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
 		}
 
-		guard session.game.hostId != userId else {
+		guard session.game.host.id != userId else {
 			return try reconnect(host: userId, to: matchId, session: session, on: req)
 		}
 
-		guard session.game.opponentId == nil || session.game.opponentId == userId else {
+		guard session.game.opponent?.id == nil || session.game.opponent?.id == userId else {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
 		}
 
@@ -79,7 +79,7 @@ final class GameManager {
 					.unwrap(or: Abort(.notFound, reason: "Match \(matchId) could not be found"))
 					.flatMap { $0.add(opponent: opponentId, on: req) }
 					.flatMapThrowing {
-						self.sessions[matchId]?.game.opponentId = opponentId
+						self.sessions[matchId]?.game.opponent = .init(id: opponentId)
 						self.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponentId))
 
 						return try Match.Join.Response(from: $0, withHost: $0.host, withOpponent: opponent)
@@ -96,7 +96,7 @@ final class GameManager {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
 		}
 
-		guard session.game.opponentId == opponent else {
+		guard session.game.opponent?.id == opponent else {
 			throw Abort(.badRequest, reason: #"Cannot leave match \#(matchId) you are not a part of"#)
 		}
 
@@ -104,7 +104,7 @@ final class GameManager {
 			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(matchId)"))
 			.flatMap { $0.remove(opponent: opponent, on: req) }
 			.map { [weak self] _ in
-				self?.sessions[matchId]?.game.opponentId = nil
+				self?.sessions[matchId]?.game.opponent = nil
 				self?.sessions[matchId]?.host?.webSocket.send(response: .playerLeft(opponent))
 				return .ok
 			}
@@ -121,8 +121,8 @@ final class GameManager {
 			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(session.game.id)"))
 			.flatMapThrowing { try $0.begin(on: context.request).wait() }
 			.whenFailure { _ in
-				self.handle(error: .failedToStartMatch, userId: session.game.hostId, session: session)
-				if let opponent = session.game.opponentId {
+				self.handle(error: .failedToStartMatch, userId: session.game.host.id, session: session)
+				if let opponent = session.game.opponent?.id {
 					self.handle(error: .failedToStartMatch, userId: opponent, session: session)
 				}
 			}
@@ -139,8 +139,8 @@ final class GameManager {
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
 			.flatMapThrowing { try $0.end(winner: session.game.winner, on: context.request).wait() }
 			.whenFailure { _ in
-				self.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
-				if let opponent = session.game.opponentId {
+				self.handle(error: .failedToEndMatch, userId: session.game.host.id, session: session)
+				if let opponent = session.game.opponent?.id {
 					self.handle(error: .failedToEndMatch, userId: opponent, session: session)
 				}
 			}
@@ -157,8 +157,8 @@ final class GameManager {
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
 			.flatMapThrowing { try $0.end(winner: winner, on: context.request).wait() }
 			.whenFailure { _ in
-				self.handle(error: .failedToEndMatch, userId: session.game.hostId, session: session)
-				if let opponent = session.game.opponentId {
+				self.handle(error: .failedToEndMatch, userId: session.game.host.id, session: session)
+				if let opponent = session.game.opponent?.id {
 					self.handle(error: .failedToEndMatch, userId: opponent, session: session)
 				}
 			}
@@ -243,7 +243,7 @@ extension GameManager {
 				handle(error: .unknownError(nil), userId: userId, session: session)
 			}
 		} else {
-			if session.game.hostId == userId {
+			if session.game.host.id == userId {
 				sessions[session.game.id] = nil
 				session.opponentContext(forUser: userId)?.webSocket.send(response: .playerLeft(userId))
 
@@ -272,7 +272,7 @@ extension GameManager {
 			return handle(error: .invalidCommand, userId: userId, session: session)
 		}
 
-		guard userId == session.game.hostId else {
+		guard userId == session.game.host.id else {
 			return handle(error: .optionNonModifiable, userId: userId, session: session)
 		}
 
@@ -342,7 +342,7 @@ extension GameManager {
 
 	private func togglePlayerReady(player: User.IDValue, session: Game.Session) {
 		guard !session.game.hasStarted,
-			session.game.opponentId != nil,
+			session.game.opponent?.id != nil,
 			let context = session.context(forUser: player) else {
 			return handle(error: .invalidCommand, userId: player, session: session)
 		}
@@ -353,7 +353,7 @@ extension GameManager {
 		session.host?.webSocket.send(response: readyResponse)
 		session.opponent?.webSocket.send(response: readyResponse)
 
-		guard session.game.hostReady && session.game.opponentReady else {
+		guard session.game.host.isReady && session.game.opponent?.isReady == true else {
 			return
 		}
 

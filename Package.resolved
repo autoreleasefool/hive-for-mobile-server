@@ -60,8 +60,8 @@
         "repositoryURL": "https://github.com/josephroquedev/hive-engine.git",
         "state": {
           "branch": null,
-          "revision": "2707e9f930149714a961ef135bc3597653565644",
-          "version": "3.1.0"
+          "revision": "d6b850c3aaacf8820816523de267c5d01de31363",
+          "version": "3.1.2"
         }
       },
       {

@@ -137,6 +137,40 @@
 <details>
 ```
 [
+	{
+		"id": "SomeMatchID",
+		"options": "HostIsWhite:false;AsyncPlay:false",
+		"gameOptions": "LadyBug:true;Mosquito:true;NoFirstMoveQueen:false",
+		"createdAt": "2020-03-30T00:00:00.000Z"
+		"duration": null,
+		"status": "notStarted",
+		"isComplete": false,
+		"host": {
+			"id": "SomeUserID",
+			"displayName": "chosenUsername",
+			"elo": 1000,
+			"avatarUrl": "https://example.com/image.png",
+		},
+		"opponent": null,
+		"winner": null
+	},
+	{
+		"id": "SomeMatchID2",
+		"options": "HostIsWhite:false;AsyncPlay:false",
+		"gameOptions": "LadyBug:true;Mosquito:true;NoFirstMoveQueen:false",
+		"createdAt": "2020-03-30T00:00:00.000Z"
+		"duration": null,
+		"status": "notStarted",
+		"isComplete": false,
+		"host": {
+			"id": "SomeUserID",
+			"displayName": "chosenUsername",
+			"elo": 1000,
+			"avatarUrl": "https://example.com/image.png",
+		},
+		"opponent": null,
+		"winner": null
+	}
 ]
 ```
 </details>
@@ -147,6 +181,50 @@
 <details>
 ```
 [
+	{
+		"id": "SomeMatchID",
+		"options": "HostIsWhite:false;AsyncPlay:false",
+		"gameOptions": "LadyBug:true;Mosquito:true;NoFirstMoveQueen:false",
+		"createdAt": "2020-03-30T00:00:00.000Z"
+		"duration": null,
+		"status": "active",
+		"isComplete": false,
+		"host": {
+			"id": "SomeUserID",
+			"displayName": "chosenUsername",
+			"elo": 1000,
+			"avatarUrl": "https://example.com/image.png",
+		},
+		"opponent": {
+			"id": "SomeUserID2",
+			"displayName": "chosenUsername2",
+			"elo": 1000,
+			"avatarUrl": "https://example.com/image.png",
+		},
+		"winner": null
+	},
+	{
+		"id": "SomeMatchID2",
+		"options": "HostIsWhite:false;AsyncPlay:false",
+		"gameOptions": "LadyBug:true;Mosquito:true;NoFirstMoveQueen:false",
+		"createdAt": "2020-03-30T00:00:00.000Z"
+		"duration": null,
+		"status": "active",
+		"isComplete": false,
+		"host": {
+			"id": "SomeUserID",
+			"displayName": "chosenUsername",
+			"elo": 1000,
+			"avatarUrl": "https://example.com/image.png",
+		},
+		"opponent": {
+			"id": "SomeUserID2",
+			"displayName": "chosenUsername2",
+			"elo": 1000,
+			"avatarUrl": "https://example.com/image.png",
+		},
+		"winner": null
+	}
 ]
 ```
 </details>

@@ -24,10 +24,17 @@ func socketRoutes(_ app: Application) {
 		.grouped(Token.guardMiddleware())
 
 	tokenProtected.webSocket(.parameter(MatchController.Parameter.match.rawValue), "play") { req, ws in
-		guard let user = try? req.auth.require(User.self) else {
+		guard let user = try? req.auth.require(User.self), let userId = user.id else {
+			_ = ws.close(code: .policyViolation)
 			return
 		}
 
-		try? gameManager.joinMatch(on: req, ws: ws, user: user)
+		do {
+			try gameManager.joinMatch(on: req, ws: ws, user: user)
+		} catch {
+			ws.send(error: .unknownError(error), fromUser: nil)
+			ws.close(code: .unexpectedServerError)
+			print("Error joining match: \(error)")
+		}
 	}
 }

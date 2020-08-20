@@ -43,7 +43,22 @@ final class GameManager {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
 		}
 
-		return try add(opponentId: userId, to: matchId, session: session, on: req)
+		return try User.find(userId, on: req.db)
+			.unwrap(or: Abort(.notFound, reason: "User \(userId) could not be found"))
+			.flatMap { opponent in
+				Match.query(on: req.db)
+					.with(\.$host)
+					.filter(\.$id == matchId)
+					.first()
+					.unwrap(or: Abort(.notFound, reason: "Match \(matchId) could not be found"))
+					.flatMap { $0.add(opponent: userId, on: req) }
+					.flatMapThrowing {
+						self.sessions[matchId]?.game.opponent = .init(id: userId)
+						self.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(userId))
+
+						return try Match.Join.Response(from: $0, withHost: $0.host, withOpponent: opponent)
+					}
+			}
 	}
 
 	private func reconnect(
@@ -60,30 +75,6 @@ final class GameManager {
 			.unwrap(or: Abort(.notFound))
 			.flatMapThrowing {
 				try Match.Join.Response(from: $0, withHost: $0.host, withOpponent: $0.opponent)
-			}
-	}
-
-	private func add(
-		opponentId: User.IDValue,
-		to matchId: Match.IDValue,
-		session: Game.Session,
-		on req: Request
-	) throws -> EventLoopFuture<Match.Join.Response> {
-		User.find(opponentId, on: req.db)
-			.unwrap(or: Abort(.notFound, reason: "User \(opponentId) could not be found"))
-			.flatMap { opponent in
-				Match.query(on: req.db)
-					.with(\.$host)
-					.filter(\.$id == matchId)
-					.first()
-					.unwrap(or: Abort(.notFound, reason: "Match \(matchId) could not be found"))
-					.flatMap { $0.add(opponent: opponentId, on: req) }
-					.flatMapThrowing {
-						self.sessions[matchId]?.game.opponent = .init(id: opponentId)
-						self.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(opponentId))
-
-						return try Match.Join.Response(from: $0, withHost: $0.host, withOpponent: opponent)
-					}
 			}
 	}
 

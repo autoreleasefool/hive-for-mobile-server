@@ -245,8 +245,8 @@ final class GameManager {
 		}
 
 		session.addSpectator(context: wsContext, user: userId)
-		ws.onClose.always { [weak self] _ in self?.sessions[matchId]?.removeSpectator(userId)}
-		ws.onText { [weak self] ws, text in
+		_ = ws.onClose.always { [weak self] _ in self?.sessions[matchId]?.removeSpectator(userId)}
+		ws.onText { ws, text in
 			ws.send(error: .invalidCommand, fromUser: userId)
 		}
 	}

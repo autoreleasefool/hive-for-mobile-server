@@ -266,6 +266,14 @@ extension Match {
 	}
 }
 
+// MARK: - Spectate
+
+extension Match {
+	struct Spectate {
+		typealias Response = Match.Details
+	}
+}
+
 // MARK: - Delete
 
 extension Match {

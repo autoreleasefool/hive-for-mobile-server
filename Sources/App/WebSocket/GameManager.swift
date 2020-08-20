@@ -43,7 +43,7 @@ final class GameManager {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
 		}
 
-		return try User.find(userId, on: req.db)
+		return User.find(userId, on: req.db)
 			.unwrap(or: Abort(.notFound, reason: "User \(userId) could not be found"))
 			.flatMap { opponent in
 				Match.query(on: req.db)
@@ -218,6 +218,38 @@ final class GameManager {
 			}
 		}
 	}
+
+	func spectateMatch(on req: Request, ws: WebSocket, user: User) throws {
+		let userId = try user.requireID()
+		let wsContext = WebSocketContext(webSocket: ws, request: req)
+
+		guard let rawMatchId = req.parameters.get(MatchController.Parameter.match.rawValue),
+			let matchId = Match.IDValue(uuidString: rawMatchId) else {
+			throw Abort(.badRequest, reason: "Match ID could not be determined from path")
+		}
+
+		guard let session = sessions[matchId] else {
+			throw Abort(.badRequest, reason: "Match \(matchId) is not open to spectate")
+		}
+
+		guard !session.contains(userId) else {
+			throw Abort(.badRequest, reason: "Cannot spectate a match you are participating in")
+		}
+
+		guard session.game.opponent != nil, session.game.hasStarted else {
+			throw Abort(.badRequest, reason: "Cannot spectate a match that has not started")
+		}
+
+		guard !session.userIsSpectating(userId: userId) else {
+			throw Abort(.badRequest, reason: "Cannot spectate a match you are already spectating")
+		}
+
+		session.addSpectator(context: wsContext, user: userId)
+		ws.onClose.always { [weak self] _ in self?.sessions[matchId]?.removeSpectator(userId)}
+		ws.onText { [weak self] ws, text in
+			ws.send(error: .invalidCommand, fromUser: userId)
+		}
+	}
 }
 
 // MARK: - GameClientMessage
@@ -233,8 +265,7 @@ extension GameManager {
 				return handle(error: .invalidCommand, userId: userId, session: session)
 			}
 
-			session.host?.webSocket.send(response: .forfeit(userId))
-			session.opponent?.webSocket.send(response: .forfeit(userId))
+			session.sendResponseToAll(.forfeit(userId))
 
 			do {
 				_ = try forfeitMatch(winner: winner, context: context, session: session)
@@ -276,8 +307,7 @@ extension GameManager {
 		}
 
 		session.game.setOption(option, to: value)
-		session.host?.webSocket.send(response: .setOption(option.asServerOption, value))
-		session.opponent?.webSocket.send(response: .setOption(option.asServerOption, value))
+		session.sendResponseToAll(.setOption(option.asServerOption, value))
 
 		do {
 			_ = try updateOptions(
@@ -292,8 +322,7 @@ extension GameManager {
 	}
 
 	private func sendMessage(message: String, fromUser userId: User.IDValue, session: Game.Session) {
-		session.host?.webSocket.send(response: .message(userId, message))
-		session.opponent?.webSocket.send(response: .message(userId, message))
+		session.sendResponseToAll(.message(userId, message))
 	}
 
 	private func playMove(movement: RelativeMovement, fromUser userId: User.IDValue, session: Game.Session) {
@@ -319,11 +348,9 @@ extension GameManager {
 		let promise = matchMovement.save(on: context.request.db)
 
 		promise.whenSuccess { _ in
-			session.host?.webSocket.send(response: .state(state))
-			session.opponent?.webSocket.send(response: .state(state))
+			session.sendResponseToAll(.state(state))
 			if state.hasGameEnded {
-				session.host?.webSocket.send(response: .gameOver(session.game.winner))
-				session.opponent?.webSocket.send(response: .gameOver(session.game.winner))
+				session.sendResponseToAll(.gameOver(session.game.winner))
 			}
 		}
 
@@ -349,8 +376,7 @@ extension GameManager {
 		session.game.togglePlayerReady(player: player)
 
 		let readyResponse = GameServerResponse.setPlayerReady(player, session.game.isPlayerReady(player: player))
-		session.host?.webSocket.send(response: readyResponse)
-		session.opponent?.webSocket.send(response: readyResponse)
+		session.sendResponseToAll(readyResponse)
 
 		guard session.game.host.isReady && session.game.opponent?.isReady == true else {
 			return
@@ -359,8 +385,7 @@ extension GameManager {
 		let state = GameState(options: session.game.gameOptions)
 		session.game.state = state
 
-		session.host?.webSocket.send(response: .state(state))
-		session.opponent?.webSocket.send(response: .state(state))
+		session.sendResponseToAll(.state(state))
 
 		do {
 			try startMatch(context: context, session: session)
@@ -402,9 +427,10 @@ extension GameManager {
 	}
 
 	private func handle(error: GameServerResponseError, userId: User.IDValue, session: Game.Session) {
-		session.host?.webSocket.send(error: error, fromUser: userId)
 		if error.shouldSendToOpponent {
-			session.opponent?.webSocket.send(error: error, fromUser: userId)
+			session.sendErrorToAll(error, fromUser: userId)
+		} else {
+			session.context(forUser: userId)?.webSocket.send(error: error, fromUser: userId)
 		}
 	}
 }

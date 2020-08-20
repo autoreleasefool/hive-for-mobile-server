@@ -138,6 +138,7 @@ extension Game {
 		let game: Game
 		var host: WebSocketContext?
 		var opponent: WebSocketContext?
+		var spectators: [User.IDValue: WebSocketContext] = [:]
 
 		init(game: Game) {
 			self.game = game
@@ -147,12 +148,24 @@ extension Game {
 			game.host.id == userId || game.opponent?.id == userId
 		}
 
+		func userIsSpectating(userId: User.IDValue) -> Bool {
+			spectators.keys.contains(userId)
+		}
+
 		func add(context: WebSocketContext, forUser userId: User.IDValue) {
 			switch userId {
 			case game.host.id: host = context
 			case game.opponent?.id: opponent = context
 			default: break
 			}
+		}
+
+		func addSpectator(context: WebSocketContext, user userId: User.IDValue) {
+			spectators[userId] = context
+		}
+
+		func removeSpectator(_ userId: User.IDValue) {
+			spectators[userId] = nil
 		}
 
 		func context(forUser userId: User.IDValue) -> WebSocketContext? {
@@ -170,6 +183,22 @@ extension Game {
 			default: return nil
 			}
 		}
+	}
+}
+
+// MARK: Sending messages
+
+extension Game.Session {
+	func sendResponseToAll(_ response: GameServerResponse) {
+		host?.webSocket.send(response: response)
+		opponent?.webSocket.send(response: response)
+		spectators.values.forEach { $0.webSocket.send(response: response) }
+	}
+
+	func sendErrorToAll(_ error: GameServerResponseError, fromUser userId: User.IDValue?) {
+		host?.webSocket.send(error: error, fromUser: userId)
+		opponent?.webSocket.send(error: error, fromUser: userId)
+		spectators.values.forEach { $0.webSocket.send(error: error, fromUser: userId) }
 	}
 }
 

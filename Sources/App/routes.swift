@@ -37,4 +37,19 @@ func socketRoutes(_ app: Application) {
 			print("Error joining match: \(error)")
 		}
 	}
+
+	tokenProtected.webSocket(.parameter(MatchController.Parameter.match.rawValue), "spectate") { req, ws in
+		guard let user = try? req.auth.require(User.self) else {
+			ws.close(code: .policyViolation)
+			return
+		}
+
+		do {
+			try gameManager.spectateMatch(on: req, ws: ws, user: user)
+		} catch {
+			ws.send(error: .unknownError(error), fromUser: nil)
+			ws.close(code: .unexpectedServerError)
+			print("Error adding spectator: \(error)")
+		}
+	}
 }

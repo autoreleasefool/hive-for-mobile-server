@@ -86,7 +86,7 @@ final class MatchController {
 			}
 	}
 
-	func open(req: Request) throws -> EventLoopFuture<[Match.Details]> {
+	func listOpen(req: Request) throws -> EventLoopFuture<[Match.Details]> {
 		Match.query(on: req.db)
 			.join(Match.Host.self, on: \Match.$host.$id == \Match.Host.$id, method: .inner)
 			.filter(\.$status == .notStarted)
@@ -102,7 +102,7 @@ final class MatchController {
 			}
 	}
 
-	func active(req: Request) throws -> EventLoopFuture<[Match.Details]> {
+	func listActive(req: Request) throws -> EventLoopFuture<[Match.Details]> {
 		Match.query(on: req.db)
 			.join(Match.Host.self, on: \Match.$host.$id == \Match.Host.$id, method: .inner)
 			.join(Match.Opponent.self, on: \Match.$opponent.$id == \Match.Opponent.$id, method: .inner)
@@ -135,8 +135,8 @@ extension MatchController: RouteCollection {
 		let matches = routes.grouped("api", "matches")
 
 		// Public routes
-		matches.get("open", use: open)
-		matches.get("active", use: active)
+		matches.get("open", use: listOpen)
+		matches.get("active", use: listActive)
 		matches.group(.parameter(Parameter.match.rawValue)) { match in
 			match.get("details", use: details)
 		}

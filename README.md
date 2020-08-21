@@ -1,3 +1,5 @@
+![Header](media/header.png)
+
 # Hive for Mobile - Server
 
 The backend for the [Hive for iOS](https://github.com/josephroquedev/hive-for-ios) app.
@@ -20,9 +22,9 @@ To set up the app for development, run the `script/dev` script to begin ngrok an
 
 ## Requirements
 
-* Swift 5.1+
-* [Vapor](https://github.com/vapor/vapor)
-* [SwiftLint](https://github.com/realm/SwiftLint)
+- Swift 5.1+
+- [Vapor](https://github.com/vapor/vapor)
+- [SwiftLint](https://github.com/realm/SwiftLint)
 
 ## Contributing
 

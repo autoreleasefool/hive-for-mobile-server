@@ -146,7 +146,9 @@ extension Match {
 
 		self.$winner.id = winner
 		status = .ended
-		duration = createdAt?.distance(to: Date())
+		if let createdAt = self.createdAt {
+			duration = Date().timeIntervalSince(createdAt)
+		}
 
 		return self.update(on: req.db)
 			.flatMap { self.$host.load(on: req.db) }

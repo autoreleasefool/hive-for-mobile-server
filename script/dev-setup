@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# ngrok setup
+pkill -f ngrok
+EXEC=$(ngrok http --host-header=rewrite 8080 >> /dev/null &)
+sleep 5s
+
+domain=$(curl --silent --show-error http://127.0.0.1:4040/api/tunnels | sed -nE 's/.*public_url":"https:..([^"]*).*/\1/p')
+url="https:\/\/$domain"
+sed -i '' "s/baseURL = URL[(]string: \".*\"[)]!/baseURL = URL(string: \"$url\")!/g" ../hive-for-ios/Hive-for-iOS/Source/API/HiveAPI.swift

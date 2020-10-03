@@ -23,7 +23,7 @@ func socketRoutes(_ app: Application) {
 	let tokenProtected = app.grouped(Token.authenticator())
 		.grouped(Token.guardMiddleware())
 
-	tokenProtected.webSocket(.parameter(MatchController.Parameter.match.rawValue), "play") { req, ws in
+	tokenProtected.webSocket("play", .parameter(MatchController.Parameter.match.rawValue)) { req, ws in
 		guard let user = try? req.auth.require(User.self), let userId = user.id else {
 			_ = ws.close(code: .policyViolation)
 			return
@@ -38,7 +38,7 @@ func socketRoutes(_ app: Application) {
 		}
 	}
 
-	tokenProtected.webSocket(.parameter(MatchController.Parameter.match.rawValue), "spectate") { req, ws in
+	tokenProtected.webSocket("spectate", .parameter(MatchController.Parameter.match.rawValue)) { req, ws in
 		guard let user = try? req.auth.require(User.self), let userId = user.id else {
 			_ = ws.close(code: .policyViolation)
 			return

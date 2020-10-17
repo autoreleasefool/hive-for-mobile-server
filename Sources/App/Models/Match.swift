@@ -137,13 +137,16 @@ extension Match {
 		let matchId = try requireID()
 
 		guard status == .active else {
+			req.logger.debug("Match (\(matchId)) is not ready to end")
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" is not ready to end (\#(status))"#)
 		}
 
 		guard $opponent.id != nil else {
+			req.logger.debug("Match (\(matchId)) has no opponent")
 			throw Abort(.internalServerError, reason: #"Match "\#(matchId)" has no opponent"#)
 		}
 
+		req.logger.debug("Ending match (\(matchId)) with winner (\(String(describing: winner)))")
 		self.$winner.id = winner
 		status = .ended
 		if let createdAt = self.createdAt {
@@ -180,6 +183,7 @@ extension Match {
 		winner: User.IDValue?,
 		on req: Request
 	) -> EventLoopFuture<Void> {
+		req.logger.debug("Updating ELOs for (\(String(describing: host.id))) and (\(String(describing: opponent.id)))")
 		guard let hostId = try? host.requireID() else {
 			print("Failed to find ID of host to resolve Elos")
 			return req.eventLoop.makeSucceededFuture(())
@@ -210,6 +214,7 @@ extension Match {
 	) -> EventLoopFuture<Match> {
 		self.options = OptionSet.encode(options)
 		self.gameOptions = OptionSet.encode(gameOptions)
+		req.logger.debug("Setting options for match (\(String(describing: id)))\n-- \(self.options)\n-- \(self.gameOptions)")
 		return self.update(on: req.db)
 			.map { self }
 	}

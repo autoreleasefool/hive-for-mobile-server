@@ -33,6 +33,7 @@ final class MatchController {
 	func create(req: Request) throws -> EventLoopFuture<Match.Create.Response> {
 		let user = try req.auth.require(User.self)
 		let match = try Match(withHost: user)
+		req.logger.debug("Creating match with host \(String(describing: user.id))")
 		return match.save(on: req.db)
 			.flatMap {
 				do {
@@ -47,6 +48,7 @@ final class MatchController {
 
 	func join(req: Request) throws -> EventLoopFuture<Match.Join.Response> {
 		let user = try req.auth.require(User.self)
+		req.logger.debug("User (\(String(describing: user.id))) joining match")
 		return Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
 			.unwrap(or: Abort(.notFound))
 			.flatMap {

@@ -24,6 +24,7 @@ func socketRoutes(_ app: Application) {
 		.grouped(Token.guardMiddleware())
 
 	tokenProtected.webSocket("play", .parameter(MatchController.Parameter.match.rawValue)) { req, ws in
+		app.logger.debug("Handling request to play")
 		guard let user = try? req.auth.require(User.self), let userId = user.id else {
 			_ = ws.close(code: .policyViolation)
 			return
@@ -34,11 +35,12 @@ func socketRoutes(_ app: Application) {
 		} catch {
 			ws.send(error: .unknownError(error), fromUser: userId)
 			_ = ws.close(code: .unexpectedServerError)
-			print("Error joining match: \(error)")
+			app.logger.error("Error joining match: \(error)")
 		}
 	}
 
 	tokenProtected.webSocket("spectate", .parameter(MatchController.Parameter.match.rawValue)) { req, ws in
+		app.logger.debug("Handling request to spectate")
 		guard let user = try? req.auth.require(User.self), let userId = user.id else {
 			_ = ws.close(code: .policyViolation)
 			return
@@ -49,7 +51,7 @@ func socketRoutes(_ app: Application) {
 		} catch {
 			ws.send(error: .unknownError(error), fromUser: userId)
 			_ = ws.close(code: .unexpectedServerError)
-			print("Error adding spectator: \(error)")
+			app.logger.error("Error adding spectator: \(error)")
 		}
 	}
 }

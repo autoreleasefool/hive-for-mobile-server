@@ -185,7 +185,7 @@ extension Match {
 	) -> EventLoopFuture<Void> {
 		req.logger.debug("Updating ELOs for (\(String(describing: host.id))) and (\(String(describing: opponent.id)))")
 		guard let hostId = try? host.requireID() else {
-			print("Failed to find ID of host to resolve Elos")
+			req.logger.debug("Failed to find ID of host to resolve Elos")
 			return req.eventLoop.makeSucceededFuture(())
 		}
 

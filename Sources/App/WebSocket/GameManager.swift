@@ -222,7 +222,7 @@ final class GameManager {
 			let reqId = UUID()
 			req.logger.debug("[\(reqId)]: \(text)")
 			guard let session = self?.sessions[matchId] else {
-				print(#"Match with ID "\#(matchId)" is not open to play."#)
+				req.logger.debug(#"Match with ID "\#(matchId)" is not open to play."#)
 				return
 			}
 

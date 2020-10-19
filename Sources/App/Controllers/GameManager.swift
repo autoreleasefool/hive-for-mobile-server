@@ -151,12 +151,17 @@ final class GameManager {
 
 		Match.find(session.game.id, on: context.request.db)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
-			.flatMapThrowing { try $0.end(winner: session.game.winner, on: context.request).wait() }
-			.whenFailure { _ in
-				context.request.logger.debug("Failed to end match (\(session.game.id))")
-				self.handleServerError(error: .failedToEndMatch, userId: session.game.host.id, session: session)
-				if let opponent = session.game.opponent?.id {
-					self.handleServerError(error: .failedToEndMatch, userId: opponent, session: session)
+			.flatMapThrowing { try $0.end(winner: session.game.winner, on: context.request) }
+			.whenComplete { result in
+				switch result {
+				case .success:
+					context.request.logger.debug("Successfully ended match (\(session.game.id))")
+				case .failure:
+					context.request.logger.debug("Failed to end match (\(session.game.id))")
+					self.handleServerError(error: .failedToEndMatch, userId: session.game.host.id, session: session)
+					if let opponent = session.game.opponent?.id {
+						self.handleServerError(error: .failedToEndMatch, userId: opponent, session: session)
+					}
 				}
 			}
 	}
@@ -172,12 +177,17 @@ final class GameManager {
 
 		Match.find(session.game.id, on: context.request.db)
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
-			.flatMapThrowing { try $0.end(winner: winner, on: context.request).wait() }
-			.whenFailure { _ in
-				context.request.logger.debug("Failed to forfeit match (\(session.game.id))")
-				self.handleServerError(error: .failedToEndMatch, userId: session.game.host.id, session: session)
-				if let opponent = session.game.opponent?.id {
-					self.handleServerError(error: .failedToEndMatch, userId: opponent, session: session)
+			.flatMapThrowing { try $0.end(winner: winner, on: context.request) }
+			.whenComplete { result in
+				switch result {
+				case .success:
+					context.request.logger.debug("Successfull forfeit match (\(session.game.id))")
+				case .failure:
+					context.request.logger.debug("Failed to forfeit match (\(session.game.id))")
+					self.handleServerError(error: .failedToEndMatch, userId: session.game.host.id, session: session)
+					if let opponent = session.game.opponent?.id {
+						self.handleServerError(error: .failedToEndMatch, userId: opponent, session: session)
+					}
 				}
 			}
 	}

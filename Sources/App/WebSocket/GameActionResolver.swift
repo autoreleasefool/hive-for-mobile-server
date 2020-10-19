@@ -85,21 +85,22 @@ struct GameActionResolver {
 
 		debugLog("Confirming move {{move}}", args: ["move": movement.description])
 		let matchMovement = MatchMovement(from: movement, userId: userId, matchId: session.game.id, ordinal: state.move)
-		let promise = matchMovement.save(on: context.request.db)
-
-		promise.whenSuccess { _ in
-			session.sendResponseToAll(.state(state))
-			if state.hasGameEnded {
-				session.sendResponseToAll(.gameOver(session.game.winner))
+		matchMovement.save(on: context.request.db)
+			.whenComplete { result in
+				switch result {
+				case .success:
+					session.sendResponseToAll(.state(state))
+					if state.hasGameEnded {
+						session.sendResponseToAll(.gameOver(session.game.winner))
+					}
+					completion(.success(nil))
+				case .failure(let error):
+					completion(.failure(.unknownError(error)))
+				}
 			}
-			completion(.success(nil))
-		}
-
-		promise.whenFailure { error in
-			completion(.failure(.unknownError(error)))
-		}
 
 		guard state.hasGameEnded else { return }
+
 		debugLog("Ending match {{match}}")
 		completion(.success(.shouldEndMatch))
 	}

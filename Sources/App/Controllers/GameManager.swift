@@ -181,7 +181,7 @@ final class GameManager {
 			.whenComplete { result in
 				switch result {
 				case .success:
-					context.request.logger.debug("Successfull forfeit match (\(session.game.id))")
+					context.request.logger.debug("Successfully forfeit match (\(session.game.id))")
 				case .failure:
 					context.request.logger.debug("Failed to forfeit match (\(session.game.id))")
 					self.handleServerError(error: .failedToEndMatch, userId: session.game.host.id, session: session)

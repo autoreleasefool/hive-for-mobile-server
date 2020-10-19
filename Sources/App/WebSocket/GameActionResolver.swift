@@ -148,6 +148,7 @@ struct GameActionResolver {
 				return completion(.failure(.invalidCommand))
 			}
 
+			session.sendResponseToAll(.forfeit(userId))
 			completion(.success(.shouldForfeitMatch(winner: winner)))
 		} else {
 			if session.game.host.id == userId {

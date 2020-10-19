@@ -93,7 +93,7 @@ final class MatchController {
 			.join(Match.Host.self, on: \Match.$host.$id == \Match.Host.$id, method: .inner)
 			.filter(\.$status == .notStarted)
 			.filter(\.$opponent.$id == .none)
-			.sort(\.$createdAt)
+			.sort(\.$createdAt, .descending)
 			.all()
 			.flatMapThrowing { matches in
 				try matches.map { match in
@@ -109,7 +109,7 @@ final class MatchController {
 			.join(Match.Host.self, on: \Match.$host.$id == \Match.Host.$id, method: .inner)
 			.join(Match.Opponent.self, on: \Match.$opponent.$id == \Match.Opponent.$id, method: .inner)
 			.filter(\.$status == .active)
-			.sort(\.$createdAt)
+			.sort(\.$createdAt, .descending)
 			.all()
 			.flatMapThrowing { matches in
 				try matches.map { match in

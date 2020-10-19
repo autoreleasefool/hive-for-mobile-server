@@ -193,11 +193,11 @@ extension GameActionResolver {
 
 	private func replacingArguments(in message: String, args: [String: String]) -> String {
 		let partialMessage = message
-			.replacingAll(matching: "{{match}}", with: args["match"] ?? session.game.id.description)
-			.replacingAll(matching: "{{user}}", with: args["user"] ?? userId.description)
+			.replacingAll(matching: #"\{\{match\}\}"#, with: args["match"] ?? session.game.id.description)
+			.replacingAll(matching: #"\{\{user\}\}"#, with: args["user"] ?? userId.description)
 
 		return args.keys.reduce(partialMessage) { partialMessage, key in
-			partialMessage.replacingOccurrences(of: "{{\(key)}}", with: args[key] ?? "")
+			partialMessage.replacingOccurrences(of: #"\{\{\#(key)}\}"#, with: args[key] ?? "")
 		}
 	}
 }

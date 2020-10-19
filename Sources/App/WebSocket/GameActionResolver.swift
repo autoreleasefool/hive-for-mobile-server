@@ -29,7 +29,7 @@ struct GameActionResolver {
 		self.context = context
 	}
 
-	func resolve(completion: (Swift.Result<Result?, GameServerResponseError>) -> Void) {
+	func resolve(completion: @escaping (Swift.Result<Result?, GameServerResponseError>) -> Void) {
 		switch message {
 		case .playerReady:
 			togglePlayerReady(completion: completion)
@@ -68,7 +68,7 @@ struct GameActionResolver {
 		completion(.success(.shouldStartMatch))
 	}
 
-	private func play(movement: RelativeMovement, completion: (Swift.Result<Result?, GameServerResponseError>) -> Void) {
+	private func play(movement: RelativeMovement, completion: @escaping (Swift.Result<Result?, GameServerResponseError>) -> Void) {
 		debugLog("User {{user}} is playing move {{move}}", args: ["move": movement.description])
 		guard session.game.hasStarted,
 					let state = session.game.state else {
@@ -98,7 +98,7 @@ struct GameActionResolver {
 			completion(.success(nil))
 		}
 
-		promise.whenFailure { [weak self] error in
+		promise.whenFailure { error in
 			completion(.failure(.unknownError(error)))
 		}
 
@@ -121,7 +121,7 @@ struct GameActionResolver {
 				"value": value.description
 			]
 		)
-		guard !session.game.hasStarted {
+		guard !session.game.hasStarted else {
 			debugLog("Cannot set option for match {{match}} that has started")
 			return completion(.failure(.invalidCommand))
 		}
@@ -140,7 +140,7 @@ struct GameActionResolver {
 		)
 		session.game.setOption(option, to: value)
 		session.sendResponseToAll(.setOption(option.asServerOption, value))
-		completion(.success(.shouldUpdateOptions)
+		completion(.success(.shouldUpdateOptions))
 	}
 
 	private func forfeit(completion: (Swift.Result<Result?, GameServerResponseError>) -> Void) {
@@ -169,12 +169,16 @@ struct GameActionResolver {
 
 extension GameActionResolver {
 	enum Result {
-		case shouldstartMatch
+		case shouldStartMatch
 		case shouldEndMatch
 		case shouldUpdateOptions
 		case shouldDeleteMatch
 		case shouldForfeitMatch(winner: User.IDValue)
-		case shouldRemoveOpponent(User.IDValue))
+		case shouldRemoveOpponent(User.IDValue)
+	}
+
+	enum Error: Swift.Error {
+		case invalidSession
 	}
 }
 

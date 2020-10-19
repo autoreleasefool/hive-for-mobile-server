@@ -83,6 +83,7 @@ final class GameManager {
 			}
 	}
 
+	@discardableResult
 	func remove(
 		opponent: User.IDValue,
 		from matchId: Match.IDValue,
@@ -124,9 +125,9 @@ final class GameManager {
 			.flatMapThrowing { try $0.begin(on: context.request).wait() }
 			.whenFailure { _ in
 				context.request.logger.debug("Failed to start match (\(session.game.id))")
-				self.handle(error: .failedToStartMatch, userId: session.game.host.id, session: session)
+				self.handleServerError(error: .failedToStartMatch, userId: session.game.host.id, session: session)
 				if let opponent = session.game.opponent?.id {
-					self.handle(error: .failedToStartMatch, userId: opponent, session: session)
+					self.handleServerError(error: .failedToStartMatch, userId: opponent, session: session)
 				}
 			}
 	}
@@ -145,9 +146,9 @@ final class GameManager {
 			.flatMapThrowing { try $0.end(winner: session.game.winner, on: context.request).wait() }
 			.whenFailure { _ in
 				context.request.logger.debug("Failed to end match (\(session.game.id))")
-				self.handle(error: .failedToEndMatch, userId: session.game.host.id, session: session)
+				self.handleServerError(error: .failedToEndMatch, userId: session.game.host.id, session: session)
 				if let opponent = session.game.opponent?.id {
-					self.handle(error: .failedToEndMatch, userId: opponent, session: session)
+					self.handleServerError(error: .failedToEndMatch, userId: opponent, session: session)
 				}
 			}
 	}
@@ -166,13 +167,14 @@ final class GameManager {
 			.flatMapThrowing { try $0.end(winner: winner, on: context.request).wait() }
 			.whenFailure { _ in
 				context.request.logger.debug("Failed to forfeit match (\(session.game.id))")
-				self.handle(error: .failedToEndMatch, userId: session.game.host.id, session: session)
+				self.handleServerError(error: .failedToEndMatch, userId: session.game.host.id, session: session)
 				if let opponent = session.game.opponent?.id {
-					self.handle(error: .failedToEndMatch, userId: opponent, session: session)
+					self.handleServerError(error: .failedToEndMatch, userId: opponent, session: session)
 				}
 			}
 	}
 
+	@discardableResult
 	func delete(match matchId: Match.IDValue, on req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
 		req.logger.debug("Deleting match (\(matchId))")
 		return Match.find(matchId, on: req.db)
@@ -181,6 +183,7 @@ final class GameManager {
 			.transform(to: .ok)
 	}
 
+	@discardableResult
 	func updateOptions(
 		matchId: Match.IDValue,
 		options: Set<Match.Option>,
@@ -218,10 +221,10 @@ final class GameManager {
 		#warning("FIXME: need to keep clients in sync when one disconnects or encounters error")
 
 		ws.pingInterval = .seconds(30)
-		ws.onText { [weak self] ws, text in
+		ws.onText { [unowned self] ws, text in
 			let reqId = UUID()
 			req.logger.debug("[\(reqId)]: \(text)")
-			guard let session = self?.sessions[matchId] else {
+			guard let session = self.sessions[matchId] else {
 				req.logger.debug(#"Match with ID "\#(matchId)" is not open to play."#)
 				return
 			}
@@ -234,15 +237,21 @@ final class GameManager {
 
 			do {
 				let message = try GameClientMessage(from: text)
-				let resolver = GameActionResolver(session: session, userId: userId, message: message)
-				let result = resolver.resolve()
-				handle(result: result, context: context, session: session)
-			} catch {
-				if let serverError = error as? GameServerResponseError {
-					handle(error: serverError, userId: userId, session: session)
-				} else {
-					handle(error: .unknownError(nil), userId: userId, session: session)
+				let resolver = try GameActionResolver(session: session, userId: userId, message: message)
+				resolver.resolve { [unowned self] result in
+					switch result {
+					case .success(let result):
+						do {
+							try self.handle(result: result, context: context, session: session)
+						} catch {
+							handle(error: error, userId: userId, session: session)
+						}
+					case .failure(let error):
+						self.handleServerError(error: error, userId: userId, session: session)
+					}
 				}
+			} catch {
+				self.handle(error: error, userId: userId, session: session)
 			}
 
 			// If the user is rejoining a game in progress, send them commands required to start the game
@@ -301,7 +310,11 @@ final class GameManager {
 
 	// MARK: Resolvers
 
-	private func handle(result: GameActionResolver.Result, context: WebSocketContext, session: Game.Session) throws {
+	private func handle(
+		result: GameActionResolver.Result?,
+		context: WebSocketContext,
+		session: Game.Session
+	) throws {
 		switch result {
 		case .shouldStartMatch:
 			try startMatch(context: context, session: session)
@@ -316,16 +329,26 @@ final class GameManager {
 		case .shouldDeleteMatch:
 			sessions[session.game.id] = nil
 			try delete(match: session.game.id, on: context.request)
+		case .none:
+			break
 		}
 	}
 
 	// MARK: Errors
 
-	private func handle(error: GameServerResponseError, userId: User.IDValue, session: Game.Session) {
+	private func handleServerError(error: GameServerResponseError, userId: User.IDValue, session: Game.Session) {
 		if error.shouldSendToOpponent {
 			session.sendErrorToAll(error, fromUser: userId)
 		} else {
 			session.context(forUser: userId)?.webSocket.send(error: error, fromUser: userId)
+		}
+	}
+
+	private func handle(error: Error, userId: User.IDValue, session: Game.Session) {
+		if let serverError = error as? GameServerResponseError {
+			self.handleServerError(error: serverError, userId: userId, session: session)
+		} else {
+			self.handleServerError(error: .unknownError(nil), userId: userId, session: session)
 		}
 	}
 }

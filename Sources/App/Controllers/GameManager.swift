@@ -226,13 +226,24 @@ final class GameManager {
 				return
 			}
 
-			guard session.contains(userId) else {
+			guard let context = session.context(forUser: userId) else {
 				req.logger.debug("[\(reqId)]: Invalid command")
 				ws.send(error: .invalidCommand, fromUser: userId)
 				return
 			}
 
-			self?.handle(reqId: reqId, req: req, text: text, userId: userId, session: session)
+			do {
+				let message = try GameClientMessage(from: text)
+				let resolver = GameActionResolver(session: session, userId: userId, message: message)
+				let result = resolver.resolve()
+				handle(result: result, context: context, session: session)
+			} catch {
+				if let serverError = error as? GameServerResponseError {
+					handle(error: serverError, userId: userId, session: session)
+				} else {
+					handle(error: .unknownError(nil), userId: userId, session: session)
+				}
+			}
 
 			// If the user is rejoining a game in progress, send them commands required to start the game
 			if let opponentId = session.game.opponent(for: userId),
@@ -287,235 +298,28 @@ final class GameManager {
 			ws.send(error: .invalidCommand, fromUser: userId)
 		}
 	}
-}
 
-// MARK: - GameClientMessage
+	// MARK: Resolvers
 
-extension GameManager {
-	private func forfeit(
-		reqId: UUID,
-		req: Request,
-		userId: User.IDValue,
-		session: Game.Session
-	) {
-		req.logger.debug("[\(reqId)]: User (\(userId)) is forfeiting match (\(session.game.id))")
-		guard let context = session.context(forUser: userId) else {
-			return handle(error: .invalidCommand, userId: userId, session: session)
-		}
-
-		if session.game.hasStarted {
-			guard let winner = session.game.opponent(for: userId) else {
-				return handle(error: .invalidCommand, userId: userId, session: session)
-			}
-
-			req.logger.debug("[\(reqId)]: Sending forfeit response to all users")
-			session.sendResponseToAll(.forfeit(userId))
-
-			do {
-				_ = try forfeitMatch(winner: winner, context: context, session: session)
-			} catch {
-				handle(error: .unknownError(nil), userId: userId, session: session)
-			}
-		} else {
-			if session.game.host.id == userId {
-				req.logger.debug("[\(reqId)]: Host (\(userId)) is leaving match (\(session.game.id))")
-				sessions[session.game.id] = nil
-				session.opponentContext(forUser: userId)?.webSocket.send(response: .playerLeft(userId))
-
-				do {
-					req.logger.debug("[\(reqId)]: Deleting match \(session.game.id)")
-					_ = try delete(match: session.game.id, on: context.request)
-				} catch {
-					handle(error: .unknownError(nil), userId: userId, session: session)
-				}
-			} else {
-				do {
-					_ = try remove(opponent: userId, from: session.game.id, on: context.request)
-				} catch {
-					handle(error: .unknownError(nil), userId: userId, session: session)
-				}
-			}
-		}
-	}
-
-	private func setOption(
-		reqId: UUID,
-		req: Request,
-		option: GameClientMessage.Option,
-		to value: Bool,
-		userId: User.IDValue,
-		session: Game.Session
-	) {
-		req.logger.debug("[\(reqId)]: User (\(userId)) is setting option (\(option)) to \(value)")
-		guard !session.game.hasStarted, let context = session.context(forUser: userId) else {
-			req.logger.debug("[\(reqId)]: Cannot set option for game that has started")
-			return handle(error: .invalidCommand, userId: userId, session: session)
-		}
-
-		guard userId == session.game.host.id else {
-			req.logger.debug("[\(reqId)]: User (\(userId)) is not the host")
-			return handle(error: .optionNonModifiable, userId: userId, session: session)
-		}
-
-		req.logger.debug("[\(reqId)]: Setting option (\(option)) to \(value)")
-		session.game.setOption(option, to: value)
-		session.sendResponseToAll(.setOption(option.asServerOption, value))
-
-		do {
-			_ = try updateOptions(
-				matchId: session.game.id,
-				options: session.game.options,
-				gameOptions: session.game.gameOptions,
-				on: context.request
-			)
-		} catch {
-			handle(error: .optionValueNotUpdated(option.asServerOption, "\(value)"), userId: userId, session: session)
-		}
-	}
-
-	private func sendMessage(
-		reqId: UUID,
-		req: Request,
-		message: String,
-		fromUser userId: User.IDValue,
-		session: Game.Session
-	) {
-		req.logger.debug("[\(reqId)]: Sending message (\(message)) to all users")
-		session.sendResponseToAll(.message(userId, message))
-	}
-
-	private func playMove(
-		reqId: UUID,
-		req: Request,
-		movement: RelativeMovement,
-		fromUser userId: User.IDValue,
-		session: Game.Session
-	) {
-		req.logger.debug("[\(reqId)]: User (\(userId)) is playing move (\(movement))")
-		guard session.game.hasStarted,
-			let state = session.game.state,
-			let context = session.context(forUser: userId) else {
-			req.logger.debug("[\(reqId)]: Match (\(session.game.id)) is not in a valid state to play")
-			return handle(error: .invalidCommand, userId: userId, session: session)
-		}
-
-		guard session.game.isPlayerTurn(player: userId) else {
-			req.logger.debug("[\(reqId)]: User (\(userId)) is not the current player")
-			return handle(error: .notPlayerTurn, userId: userId, session: session)
-		}
-
-		guard state.apply(relativeMovement: movement) else {
-			req.logger.debug("[\(reqId)]: Move (\(movement)) is not valid")
-			return handle(
-				error: .invalidMovement(movement.notation),
-				userId: userId,
-				session: session
-			)
-		}
-
-		req.logger.debug("[\(reqId)]: Confirming move (\(movement))")
-		let matchMovement = MatchMovement(from: movement, userId: userId, matchId: session.game.id, ordinal: state.move)
-		let promise = matchMovement.save(on: context.request.db)
-
-		promise.whenSuccess { _ in
-			session.sendResponseToAll(.state(state))
-			if state.hasGameEnded {
-				session.sendResponseToAll(.gameOver(session.game.winner))
-			}
-		}
-
-		promise.whenFailure { [weak self] _ in
-			self?.handle(error: .unknownError(nil), userId: userId, session: session)
-		}
-
-		guard state.hasGameEnded else { return }
-		req.logger.debug("[\(reqId)]: Ending match (\(session.game.id))")
-		do {
-			try endMatch(context: context, session: session)
-		} catch {
-			handle(error: .failedToEndMatch, userId: userId, session: session)
-		}
-	}
-
-	private func togglePlayerReady(
-		reqId: UUID,
-		req: Request,
-		player: User.IDValue,
-		session: Game.Session
-	) {
-		req.logger.debug("[\(reqId)]: Toggling user (\(player)) ready state")
-		guard !session.game.hasStarted,
-			session.game.opponent?.id != nil,
-			let context = session.context(forUser: player) else {
-			return handle(error: .invalidCommand, userId: player, session: session)
-		}
-
-		req.logger.debug("[\(reqId)]: Toggling ready state")
-		session.game.togglePlayerReady(player: player)
-
-		let readyResponse = GameServerResponse.setPlayerReady(player, session.game.isPlayerReady(player: player))
-		session.sendResponseToAll(readyResponse)
-
-		guard session.game.host.isReady && session.game.opponent?.isReady == true else {
-			return
-		}
-
-		let state = GameState(options: session.game.gameOptions)
-		session.game.state = state
-
-		session.sendResponseToAll(.state(state))
-
-		do {
-			req.logger.debug("[\(reqId)]: Both players ready. Starting match (\(session.game.id))")
+	private func handle(result: GameActionResolver.Result, context: WebSocketContext, session: Game.Session) throws {
+		switch result {
+		case .shouldStartMatch:
 			try startMatch(context: context, session: session)
-		} catch {
-			handle(error: .unknownError(nil), userId: player, session: session)
-		}
-	}
-}
-
-// MARK: - Messages
-
-extension GameManager {
-	private func handle(
-		reqId: UUID,
-		req: Request,
-		message: GameClientMessage,
-		userId: User.IDValue,
-		session: Game.Session
-	) {
-		switch message {
-		case .playerReady:
-			togglePlayerReady(reqId: reqId, req: req, player: userId, session: session)
-		case .playMove(let movement):
-			playMove(reqId: reqId, req: req, movement: movement, fromUser: userId, session: session)
-		case .sendMessage(let string):
-			sendMessage(reqId: reqId, req: req, message: string, fromUser: userId, session: session)
-		case .setOption(let option, let value):
-			setOption(reqId: reqId, req: req, option: option, to: value, userId: userId, session: session)
-		case .forfeit:
-			forfeit(reqId: reqId, req: req, userId: userId, session: session)
+		case .shouldEndMatch:
+			try endMatch(context: context, session: session)
+		case .shouldUpdateOptions:
+			try updateOptions(matchId: session.game.id, options: session.game.options, gameOptions: session.game.gameOptions, on: context.request)
+		case .shouldForfeitMatch(let winner):
+			try forfeitMatch(winner: winner, context: context, session: session)
+		case .shouldRemoveOpponent(let user):
+			try remove(opponent: user, from: session.game.id, on: context.request)
+		case .shouldDeleteMatch:
+			sessions[session.game.id] = nil
+			try delete(match: session.game.id, on: context.request)
 		}
 	}
 
-	private func handle(
-		reqId: UUID,
-		req: Request,
-		text: String,
-		userId: User.IDValue,
-		session: Game.Session
-	) {
-		do {
-			let message = try GameClientMessage(from: text)
-			handle(reqId: reqId, req: req, message: message, userId: userId, session: session)
-		} catch {
-			if let serverError = error as? GameServerResponseError {
-				handle(error: serverError, userId: userId, session: session)
-			} else {
-				handle(error: .unknownError(nil), userId: userId, session: session)
-			}
-		}
-	}
+	// MARK: Errors
 
 	private func handle(error: GameServerResponseError, userId: User.IDValue, session: Game.Session) {
 		if error.shouldSendToOpponent {

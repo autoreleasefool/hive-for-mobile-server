@@ -61,9 +61,6 @@ struct GameActionResolver {
 			return completion(.success(nil))
 		}
 
-		let state = GameState(options: session.game.gameOptions)
-		session.game.state = state
-		session.sendResponseToAll(.state(state))
 		debugLog("Both players ready. Starting match {{match}}")
 		completion(.success(.shouldStartMatch))
 	}

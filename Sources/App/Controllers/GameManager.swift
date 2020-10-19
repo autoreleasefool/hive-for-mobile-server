@@ -122,12 +122,20 @@ final class GameManager {
 
 		Match.find(session.game.id, on: context.request.db)
 			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(session.game.id)"))
-			.flatMapThrowing { try $0.begin(on: context.request).wait() }
-			.whenFailure { _ in
-				context.request.logger.debug("Failed to start match (\(session.game.id))")
-				self.handleServerError(error: .failedToStartMatch, userId: session.game.host.id, session: session)
-				if let opponent = session.game.opponent?.id {
-					self.handleServerError(error: .failedToStartMatch, userId: opponent, session: session)
+			.flatMapThrowing { try $0.begin(on: context.request) }
+			.whenComplete { result in
+				switch result {
+				case .success:
+					context.request.logger.debug("Started match (\(session.game.id)). Sending state to users")
+					let state = GameState(options: session.game.gameOptions)
+					session.game.state = state
+					session.sendResponseToAll(.state(state))
+				case .failure:
+					context.request.logger.debug("Failed to start match (\(session.game.id))")
+					self.handleServerError(error: .failedToStartMatch, userId: session.game.host.id, session: session)
+					if let opponent = session.game.opponent?.id {
+						self.handleServerError(error: .failedToStartMatch, userId: opponent, session: session)
+					}
 				}
 			}
 	}

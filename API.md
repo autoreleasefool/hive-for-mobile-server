@@ -109,6 +109,9 @@
 
 **GET** api/users/all - List of all users
 
+* Params
+  * **filter:** Filter to users with substring in name 
+
 <summary>Example response</summary>
 <details>
 ```

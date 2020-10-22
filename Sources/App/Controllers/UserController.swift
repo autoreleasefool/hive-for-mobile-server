@@ -14,6 +14,10 @@ struct UserController {
 		case user = "userID"
 	}
 
+	enum Query: String {
+		case filter = "filter"
+	}
+
 	private func id(from req: Request) throws -> User.IDValue {
 		guard let idParam = req.parameters.get(Parameter.user.rawValue),
 			let userId = User.IDValue(uuidString: idParam) else {
@@ -52,8 +56,33 @@ struct UserController {
 					switch match.status {
 					case .active: response.activeMatches.append(try Match.Details(from: match))
 					case .ended: response.pastMatches.append(try Match.Details(from: match))
-					case .notStarted: break
+					case .notStarted: continue
 					}
+				}
+				return response
+			}
+	}
+
+	func list(req: Request) throws -> EventLoopFuture<[User.Details]> {
+		let filter = try? req.query.get(at: Query.filter.rawValue) ?? ""
+		return User.query(on: req.db)
+			.with(\.$hostedMatches)
+			.with(\.$joinedMatches)
+			.filter(\.$displayName ~~ (filter ?? ""))
+			.limit(25) // TODO: Remove limiting for user search, add pagination
+			.all()
+			.flatMapThrowing { users in
+				var response: [User.Details] = []
+				for user in users {
+					guard var userResponse = try? User.Details(from: user) else { continue }
+					for match in user.allMatches {
+						switch match.status {
+						case .active: userResponse.activeMatches.append(try Match.Details(from: match))
+						case .ended: userResponse.pastMatches.append(try Match.Details(from: match))
+						case .notStarted: continue
+						}
+					}
+					response.append(userResponse)
 				}
 				return response
 			}
@@ -137,6 +166,7 @@ extension UserController: RouteCollection {
 		// Public routes
 
 		users.post("signup", use: create)
+		users.get("all", use: list)
 		users.group(.parameter(Parameter.user.rawValue)) { user in
 			user.get("details", use: details)
 			user.get("summary", use: summary)

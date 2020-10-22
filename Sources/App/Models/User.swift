@@ -103,6 +103,15 @@ extension Match {
 	}
 }
 
+// MARK: - Guests
+
+extension User {
+	static func generateRandomGuestName() -> String {
+		let id = String(Int.random(in: 1...99999))
+		return String(repeating: "0" as Character, count: 5 - id.count) + id
+	}
+}
+
 // MARK: - Modifiers
 
 extension User {

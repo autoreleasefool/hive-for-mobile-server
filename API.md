@@ -31,6 +31,21 @@
 ```
 </details>
 
+**POST** api/users/guestSignup - Sign up
+
+<summary>Example response</summary>
+<details>
+```
+{
+	"id": "SomeUserID",
+	"email": "example@mail.com",
+	"displayName": "Guest #####",
+	"avatarUrl": null,
+	"token": "SomeAccessToken"
+}
+```
+</details>
+
 **POST** api/users/login - Login
 
 <summary>Example input</summary>

@@ -90,6 +90,33 @@ struct UserController {
 
 	// MARK: - Authentication
 
+	func createGuest(req: Request) throws -> EventLoopFuture<User.Create.Response> {
+		do {
+			let hash = try Bcrypt.hash(UUID().uuidString)
+			let user = User(
+				email: "guest-\(UUID().uuidString)@example.com",
+				password: hash,
+				displayName: "Guest #\(User.generateRandomGuestName())"
+			)
+
+			return user.save(on: req.db)
+				.flatMap {
+					do {
+						let token = try Token.generateToken(forUser: user.requireID(), source: .signup)
+						return  token.save(on: req.db)
+							.map { token }
+					} catch {
+						return req.eventLoop.makeFailedFuture(error)
+					}
+				}
+				.flatMapThrowing {
+					try User.Create.Response(from: user, withToken: $0)
+				}
+		} catch  {
+			return req.eventLoop.makeFailedFuture(error)
+		}
+	}
+
 	func create(req: Request) throws -> EventLoopFuture<User.Create.Response> {
 		try User.Create.validate(req)
 		let create = try req.content.decode(User.Create.self)
@@ -166,6 +193,7 @@ extension UserController: RouteCollection {
 		// Public routes
 
 		users.post("signup", use: create)
+		users.post("guestSignup", use: createGuest)
 		users.get("all", use: list)
 		users.group(.parameter(Parameter.user.rawValue)) { user in
 			user.get("details", use: details)

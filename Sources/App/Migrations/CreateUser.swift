@@ -19,6 +19,7 @@ struct CreateUser: Migration {
 			.field("elo", .int, .required)
 			.field("avatar_url", .string)
 			.field("is_admin", .bool)
+			.field("is_guest", .bool)
 			.create()
 	}
 

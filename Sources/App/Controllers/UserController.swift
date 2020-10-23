@@ -96,7 +96,8 @@ struct UserController {
 			let user = User(
 				email: "guest-\(UUID().uuidString)@example.com",
 				password: hash,
-				displayName: "Guest #\(User.generateRandomGuestName())"
+				displayName: "Guest #\(User.generateRandomGuestName())",
+				isGuest: true
 			)
 
 			return user.save(on: req.db)
@@ -137,7 +138,12 @@ struct UserController {
 
 				do {
 					let hash = try Bcrypt.hash(create.password)
-					let user = User(email: create.email.lowercased(), password: hash, displayName: create.displayName)
+					let user = User(
+						email: create.email.lowercased(),
+						password: hash,
+						displayName: create.displayName,
+						isGuest: false
+					)
 					return user.save(on: req.db)
 						.map { user }
 				} catch {

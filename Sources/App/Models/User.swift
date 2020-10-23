@@ -39,6 +39,10 @@ final class User: Model, Content {
 	@Field(key: "is_admin")
 	var isAdmin: Bool
 
+	/// `true` if the user is a guest account
+	@Field(key: "is_guest")
+	var isGuest: Bool
+
 	@Children(for: \.$host)
 	var hostedMatches: [Match]
 
@@ -47,12 +51,13 @@ final class User: Model, Content {
 
 	init() { }
 
-	init(email: String, password: String, displayName: String) {
+	init(email: String, password: String, displayName: String, isGuest: Bool) {
 		self.email = email
 		self.password = password
 		self.displayName = displayName
 		self.elo = Elo.Rating.default
 		self.isAdmin = false
+		self.isGuest = isGuest
 	}
 
 	init(
@@ -62,7 +67,8 @@ final class User: Model, Content {
 		displayName: String,
 		elo: Int,
 		avatarUrl: String?,
-		isAdmin: Bool
+		isAdmin: Bool,
+		isGuest: Bool
 	) {
 		self.id = id
 		self.email = email
@@ -71,6 +77,7 @@ final class User: Model, Content {
 		self.elo = elo
 		self.avatarUrl = avatarUrl
 		self.isAdmin = isAdmin
+		self.isGuest = isGuest
 	}
 
 	var allMatches: [Match] {

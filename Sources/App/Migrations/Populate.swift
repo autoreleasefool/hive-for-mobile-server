@@ -17,7 +17,8 @@ struct PopulateWithUsers: Migration {
 			displayName: "Scott",
 			elo: 192,
 			avatarUrl: "https://avatars3.githubusercontent.com/u/5544925?v=4",
-			isAdmin: true
+			isAdmin: true,
+			isGuest: false
 		).save(on: database)
 
 		_ = User(
@@ -27,7 +28,8 @@ struct PopulateWithUsers: Migration {
 			displayName: "Dann Beauregard",
 			elo: 1240,
 			avatarUrl: "https://avatars2.githubusercontent.com/u/30088157?v=4",
-			isAdmin: false
+			isAdmin: false,
+			isGuest: false
 		).save(on: database)
 
 		return User(
@@ -37,7 +39,8 @@ struct PopulateWithUsers: Migration {
 			displayName: "Joseph",
 			elo: 1000,
 			avatarUrl: "https://avatars1.githubusercontent.com/u/6619581?v=4",
-			isAdmin: false
+			isAdmin: false,
+			isGuest: false
 		).save(on: database)
 	}
 

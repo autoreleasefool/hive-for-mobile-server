@@ -189,6 +189,11 @@ extension Match {
 			return req.eventLoop.makeSucceededFuture(())
 		}
 
+		guard !host.isGuest && !opponent.isGuest else {
+			req.logger.debug("Games with guests do not affect Elo ratings")
+			return req.eventLoop.makeSucceededFuture(())
+		}
+
 		let hostUpdate: EventLoopFuture<User>
 		let opponentUpdate: EventLoopFuture<User>
 		if winner == nil {

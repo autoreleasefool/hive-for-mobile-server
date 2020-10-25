@@ -16,19 +16,33 @@ For more information on the API, see [API.md](./API.md)
 1. Run the server
 1. The app will be available at `localhost:8080`
 
-### Optional
+#### Requirements
 
-To set up the app for development, run the `script/dev` script to begin ngrok and set up the [Hive for iOS](https://github.com/josephroquedev/hive-for-ios) client to connect to your instance
-
-## Requirements
-
-- Swift 5.1+
+- Swift 5.3+
 - [Vapor](https://github.com/vapor/vapor)
 - [SwiftLint](https://github.com/realm/SwiftLint)
+
+### Development
+
+To set up the app for development, run the `script/dev-setup` script to begin ngrok and set up the [Hive for iOS](https://github.com/josephroquedev/hive-for-ios) client to connect to your instance
+
+#### Requirements
+- macOS
+- [nginx](https://nginx.org/en/docs/)
+- [ngrok](https://ngrok.com)
+
+### Deploying
+
+To set up the app to be deployed, run the `script/prod-setup` script to copy the configuration files to the appropriate directories.
+
+#### Requirements
+- Ubuntu
+- [nginx](https://nginx.org/en/docs/)
+- [supervisor](http://supervisord.org)
 
 ## Contributing
 
 1. Clone this repo
-2. Make your changes and run `swiftlint` to ensure there are no lint errors
-3. TODO: Testing
-4. Open a PR with your changes (don't include ngrok URLs) 🎉
+1. Make your changes and run `swiftlint` to ensure there are no lint errors
+1. TODO: Testing
+1. Open a PR with your changes (don't include ngrok URLs) 🎉

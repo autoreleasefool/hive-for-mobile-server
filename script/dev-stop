@@ -1,0 +1,8 @@
+#!/bin/sh
+# For use on macOS
+
+pkill -f ngrok
+brew services stop nginx
+
+nginx_dest='/usr/local/etc/nginx/servers/hive-for-mobile-server.conf'
+rm $nginx_dest

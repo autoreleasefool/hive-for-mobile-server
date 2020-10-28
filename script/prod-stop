@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -o allexport
+source secret/env-prod
+set +o allexport
+
+supervisorctl stop 'hive-for-mobile-server'
+
+sudo service nginx stop
+rm $NGINX_CONF_DEST

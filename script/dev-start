@@ -1,6 +1,10 @@
 #!/bin/sh
 # For use on macOS
 
+set -o allexport
+source secret/env-dev
+set +o allexport
+
 reset_nginx=false
 reset_ngrok=false
 
@@ -15,18 +19,17 @@ NGINX_PORT=8081
 PROJECT_PORT=8080
 PROJECT_HOST="localhost"
 PROJECT_DIR=$(pwd)
-IOS_PROJECT_DIR="${PROJECT_DIR}/../hive-for-ios"
+IOS_PROJECT_DIR="$PROJECT_DIR/../hive-for-ios"
 NGROK_TUNNELS_URL="http://127.0.0.1:4040/api/tunnels"
 
 # nginx setup
 
 if [ "$reset_nginx" = true ]; then
-	nginx_dest='/usr/local/etc/nginx/servers/hive-for-mobile-server.conf'
-	cp 'config/nginx/hive-for-mobile-server.local.conf' $nginx_dest
-	sed -i '' "s/\$PORT/${NGINX_PORT}/g" $nginx_dest
-	sed -i '' "s~\$PROJECT_DIR~${PROJECT_DIR}~g" $nginx_dest
-	sed -i '' "s/\$PROJECT_HOST/${PROJECT_HOST}/g" $nginx_dest
-	sed -i '' "s/\$PROJECT_PORT/${PROJECT_PORT}/g" $nginx_dest
+	cp 'config/nginx/hive-for-mobile-server.local.conf' $NGINX_CONF_DEST
+	sed -i '' "s/\$PORT/$NGINX_PORT/g" $NGINX_CONF_DEST
+	sed -i '' "s~\$PROJECT_DIR~$PROJECT_DIR~g" $NGINX_CONF_DEST
+	sed -i '' "s/\$PROJECT_HOST/$PROJECT_HOST/g" $NGINX_CONF_DEST
+	sed -i '' "s/\$PROJECT_PORT/$PROJECT_PORT/g" $NGINX_CONF_DEST
 	brew services restart nginx
 fi
 
@@ -36,7 +39,7 @@ response=$(curl --write-out '%{http_code}' --silent --output /dev/null $NGROK_TU
 
 if [ "$response" != 200 ] || [ "$reset_ngrok" = true ]; then
 	pkill -f ngrok
-	EXEC=$(ngrok http --host-header="${PROJECT_HOST}:${PROJECT_PORT}" "https://${PROJECT_HOST}:${NGINX_PORT}" >> /dev/null &)
+	EXEC=$(ngrok http --host-header="$PROJECT_HOST:$PROJECT_PORT" "https://$PROJECT_HOST:$NGINX_PORT" >> /dev/null &)
 	sleep 5s
 fi
 

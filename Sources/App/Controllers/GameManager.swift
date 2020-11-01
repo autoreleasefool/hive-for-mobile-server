@@ -305,7 +305,9 @@ final class GameManager {
 			throw Abort(.badRequest, reason: "Cannot spectate a match you are participating in")
 		}
 
-		guard session.game.opponent != nil, session.game.hasStarted else {
+		guard session.game.opponent != nil,
+			session.game.hasStarted,
+			let state = session.game.state else {
 			req.logger.debug("Match (\(matchId)) has not started")
 			throw Abort(.badRequest, reason: "Cannot spectate a match that has not started")
 		}
@@ -324,6 +326,7 @@ final class GameManager {
 		ws.onText { ws, text in
 			ws.send(error: .invalidCommand, fromUser: userId)
 		}
+		ws.send(response: .state(state))
 	}
 
 	// MARK: Resolvers

@@ -20,6 +20,7 @@ PROJECT_PORT=8080
 PROJECT_HOST="localhost"
 PROJECT_DIR=$(pwd)
 IOS_PROJECT_DIR="$PROJECT_DIR/../hive-for-ios"
+ANDROID_PROJECT_DIR="$PROJECT_DIR/../hive-for-android"
 NGROK_TUNNELS_URL="http://127.0.0.1:4040/api/tunnels"
 
 # nginx setup
@@ -48,4 +49,5 @@ fi
 domain=$(curl --silent --show-error $NGROK_TUNNELS_URL | sed -nE 's/.*public_url":"https:..([^"]*).*/\1/p')
 url="https:\/\/$domain"
 sed -i '' "s/baseURL = URL[(]string: \".*\"[)]!/baseURL = URL(string: \"$url\")!/g" "${IOS_PROJECT_DIR}/Hive-for-iOS/Source/API/HiveAPI.swift"
+sed -i '' "s/baseURL = '.*'/baseURL = '$url'/g" "${ANDROID_PROJECT_DIR}/src/api/constants.ts"
 echo "ngrok url: $url"

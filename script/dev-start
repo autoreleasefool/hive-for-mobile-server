@@ -51,3 +51,6 @@ url="https:\/\/$domain"
 sed -i '' "s/baseURL = URL[(]string: \".*\"[)]!/baseURL = URL(string: \"$url\")!/g" "${IOS_PROJECT_DIR}/Hive-for-iOS/Source/API/HiveAPI.swift"
 sed -i '' "s/baseURL = '.*'/baseURL = '$url'/g" "${ANDROID_PROJECT_DIR}/src/utilities/constants.ts"
 echo "ngrok url: $url"
+
+echo 'starting server'
+vapor run serve --port $PROJECT_PORT --log debug

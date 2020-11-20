@@ -1,0 +1,17 @@
+name: hive-for-mobile-server
+type: ios
+up:
+  - homebrew:
+    - swiftlint
+    - vapor
+    - nginx
+    - ngrok
+commands:
+  server:
+    desc: 'starts a vapor server'
+    run: ./script/dev-start
+    aliases: [s]
+  down:
+    desc: 'clean up the server'
+    run: ./script/dev-stop
+    aliases: [d]

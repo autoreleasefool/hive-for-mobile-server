@@ -29,7 +29,8 @@ public func configure(_ app: Application) throws {
 
 	try app.autoMigrate().wait()
 
-	app.middleware.use(SupportedVersionMiddleware())
+	app.middleware.use(SupportedAppVersionMiddleware())
+	app.middleware.use(SupportedEngineVersionMiddleware())
 
 	try routes(app)
 	socketRoutes(app)

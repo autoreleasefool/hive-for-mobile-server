@@ -38,6 +38,11 @@ if [ "$reset_nginx" = true ]; then
 	sed -i '' "s/\$PROJECT_PORT/$PROJECT_PORT/g" $NGINX_CONF_DEST
 	sed -i '' "s~\$SSL_CERT_LOCATION~$SSL_CERT_LOCATION~g" $NGINX_CONF_DEST
 	sed -i '' "s~\$SSL_CERT_KEY_LOCATION~$SSL_CERT_KEY_LOCATION~g" $NGINX_CONF_DEST
+
+	if [[ -z "$NGINX_CONF_LINK" ]]; then
+		ln -s $NGINX_CONF_DEST $NGINX_CONF_LINK
+	fi
+
 	sudo service nginx restart
 fi
 

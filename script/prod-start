@@ -39,7 +39,8 @@ if [ "$reset_nginx" = true ]; then
 	sudo sed -i "s~\$SSL_CERT_LOCATION~$SSL_CERT_LOCATION~g" $NGINX_CONF_DEST
 	sudo sed -i "s~\$SSL_CERT_KEY_LOCATION~$SSL_CERT_KEY_LOCATION~g" $NGINX_CONF_DEST
 
-	if [[ -z "$NGINX_CONF_LINK" ]]; then
+	if [ -n "$NGINX_CONF_LINK" ]; then
+		sudo rm $NGINX_CONF_LINK
 		sudo ln -s $NGINX_CONF_DEST $NGINX_CONF_LINK
 	fi
 

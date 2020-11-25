@@ -20,9 +20,9 @@ done
 
 if [ "$reset_supervisor" = true ]; then
 	sudo cp 'config/supervisor/hive-for-mobile-server.conf' $SUPERVISOR_CONF_DEST
-	sudo sed -i '' "s/\$USER/$USER/g" $SUPERVISOR_CONF_DEST
-	sudo sed -i '' "s/\$PROJECT_DIR/$PROJECT_DIR/g" $SUPERVISOR_CONF_DEST
-	sudo sed -i '' "s/\$PROJECT_PORT/$PROJECT_PORT/g" $SUPERVISOR_CONF_DEST
+	sudo sed -i "s/\$USER/$USER/g" $SUPERVISOR_CONF_DEST
+	sudo sed -i "s~\$PROJECT_DIR~$PROJECT_DIR~g" $SUPERVISOR_CONF_DEST
+	sudo sed -i "s/\$PROJECT_PORT/$PROJECT_PORT/g" $SUPERVISOR_CONF_DEST
 	supervisorctl reread
 	supervisorctl add 'hive-for-mobile-server'
 fi
@@ -33,11 +33,11 @@ supervisorctl start 'hive-for-mobile-server'
 
 if [ "$reset_nginx" = true ]; then
 	sudo cp 'config/nginx/hive-for-mobile-server.production.conf' $NGINX_CONF_DEST
-	sudo sed -i '' "s~\$PROJECT_DIR~$PROJECT_DIR~g" $NGINX_CONF_DEST
-	sudo sed -i '' "s/\$PROJECT_HOST/$PROJECT_HOST/g" $NGINX_CONF_DEST
-	sudo sed -i '' "s/\$PROJECT_PORT/$PROJECT_PORT/g" $NGINX_CONF_DEST
-	sudo sed -i '' "s~\$SSL_CERT_LOCATION~$SSL_CERT_LOCATION~g" $NGINX_CONF_DEST
-	sudo sed -i '' "s~\$SSL_CERT_KEY_LOCATION~$SSL_CERT_KEY_LOCATION~g" $NGINX_CONF_DEST
+	sudo sed -i "s~\$PROJECT_DIR~$PROJECT_DIR~g" $NGINX_CONF_DEST
+	sudo sed -i "s/\$PROJECT_HOST/$PROJECT_HOST/g" $NGINX_CONF_DEST
+	sudo sed -i "s/\$PROJECT_PORT/$PROJECT_PORT/g" $NGINX_CONF_DEST
+	sudo sed -i "s~\$SSL_CERT_LOCATION~$SSL_CERT_LOCATION~g" $NGINX_CONF_DEST
+	sudo sed -i "s~\$SSL_CERT_KEY_LOCATION~$SSL_CERT_KEY_LOCATION~g" $NGINX_CONF_DEST
 
 	if [[ -z "$NGINX_CONF_LINK" ]]; then
 		sudo ln -s $NGINX_CONF_DEST $NGINX_CONF_LINK

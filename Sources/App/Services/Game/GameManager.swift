@@ -114,8 +114,10 @@ final class GameManager: GameService {
 			game.state.userDidDisconnect(userId)
 
 			if game.state.host.id == userId {
-				let fiveMinutesFromNow = Date(timeIntervalSinceNow: 60 * 5)
-				// TODO: schedule clean up of match
+				req.eventLoop.scheduleTask(in: .minutes(5)) {
+					ExpiredGameJob(id: matchId)
+						.invoke(req.application)
+				}
 			}
 		}
 	}

@@ -26,13 +26,13 @@ public func configure(_ app: Application) throws {
 	app.migrations.add(CreateMatch())
 	app.migrations.add(CreateMatchMovement())
 	app.migrations.add(PopulateWithUsers())
-
 	try app.autoMigrate().wait()
 
 	app.middleware.use(SupportedAppVersionMiddleware())
 	app.middleware.use(SupportedEngineVersionMiddleware())
 
 	app.gameService = GameManager()
+	app.lifecycle.use(BootService())
 
 	try routes(app)
 	socketRoutes(app)

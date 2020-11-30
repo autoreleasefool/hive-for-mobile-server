@@ -8,15 +8,13 @@
 
 import Vapor
 
- let gameManager = GameManager()
-
 func routes(_ app: Application) throws {
 	app.get { _ in
 		"It works!"
 	}
 
 	try app.register(collection: UserController())
-	try app.register(collection: MatchController(gameManager: gameManager))
+	try app.register(collection: MatchController())
 }
 
 func socketRoutes(_ app: Application) {
@@ -31,7 +29,7 @@ func socketRoutes(_ app: Application) {
 		}
 
 		do {
-			try gameManager.joinMatch(on: req, ws: ws, user: user)
+			try app.gameService.connectPlayer(user, ws: ws, on: req)
 		} catch {
 			ws.send(error: .unknownError(error), fromUser: userId)
 			_ = ws.close(code: .unexpectedServerError)
@@ -47,7 +45,7 @@ func socketRoutes(_ app: Application) {
 		}
 
 		do {
-			try gameManager.spectateMatch(on: req, ws: ws, user: user)
+			try app.gameService.connectSpectator(user, ws: ws, on: req)
 		} catch {
 			ws.send(error: .unknownError(error), fromUser: userId)
 			_ = ws.close(code: .unexpectedServerError)

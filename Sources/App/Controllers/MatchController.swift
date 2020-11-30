@@ -14,12 +14,6 @@ final class MatchController {
 		case match = "matchID"
 	}
 
-	private let gameManager: GameManager
-
-	init(gameManager: GameManager) {
-		self.gameManager = gameManager
-	}
-
 	private func id(from req: Request) throws -> Match.IDValue {
 		guard let idParam = req.parameters.get(Parameter.match.rawValue),
 			let matchId = Match.IDValue(uuidString: idParam) else {
@@ -37,8 +31,12 @@ final class MatchController {
 		return match.save(on: req.db)
 			.flatMap {
 				do {
-					let match = try self.gameManager.add(match, on: req)
-					return match
+					let state = try Game.State(match: match)
+					let game = Game(state: state)
+					return try req.application
+						.gameService
+						.addGame(game, on: req)
+						.map { match }
 				} catch {
 					return req.eventLoop.makeFailedFuture(error)
 				}
@@ -49,12 +47,24 @@ final class MatchController {
 	func join(req: Request) throws -> EventLoopFuture<Match.Join.Response> {
 		let user = try req.auth.require(User.self)
 		req.logger.debug("User (\(String(describing: user.id))) joining match")
-		return Match.find(req.parameters.get(Parameter.match.rawValue), on: req.db)
+
+		guard let matchParam = req.parameters.get(Parameter.match.rawValue),
+			let matchId = Match.IDValue(uuidString: matchParam) else {
+			return req.eventLoop.makeFailedFuture(Abort(.badRequest, reason: "ID is not valid"))
+		}
+
+		return Match.query(on: req.db)
+			.filter(\.$id == matchId)
+			.with(\.$host)
+			.with(\.$opponent)
+			.first()
 			.unwrap(or: Abort(.notFound))
-			.flatMap {
+			.flatMap { match in
 				do {
-					let match = try self.gameManager.add(user: user.requireID(), to: $0.requireID(), on: req)
-					return match
+					return try req.application
+						.gameService
+						.addUser(user, to: match, on: req)
+						.flatMapThrowing { try Match.Join.Response(from: match, withHost: match.host, withOpponent: user) }
 				} catch {
 					return req.eventLoop.makeFailedFuture(error)
 				}

@@ -110,10 +110,9 @@ extension Game {
 			self.gameOptions = OptionSet.parse(gameOptions)
 		}
 
-		convenience init?(match: Match) {
-			guard let id = try? match.requireID() else { return nil }
+		convenience init(match: Match) throws {
 			self.init(
-				id: id,
+				id: try match.requireID(),
 				hostId: match.$host.id,
 				opponentId: match.$opponent.id,
 				options: match.options,

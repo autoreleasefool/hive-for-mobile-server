@@ -32,6 +32,8 @@ public func configure(_ app: Application) throws {
 	app.middleware.use(SupportedAppVersionMiddleware())
 	app.middleware.use(SupportedEngineVersionMiddleware())
 
+	app.gameService = GameManager()
+
 	try routes(app)
 	socketRoutes(app)
 }

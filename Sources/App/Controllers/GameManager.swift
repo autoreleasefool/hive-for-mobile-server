@@ -9,36 +9,34 @@ import Fluent
 import HiveEngine
 import Vapor
 
-final class GameManager {
+final class GameManager: GameService {
 	private var games: [Match.IDValue: Game] = [:]
+	var activeGames: [Game] {
+		Array(games.values)
+	}
 
 	init() {}
 
-	// MARK: Managing Players
+	// MARK: Adding players
 
-	func add(_ match: Match, on req: Request) throws -> EventLoopFuture<Match> {
-		req.logger.debug("Adding match (\(String(describing: match.id)))")
-		guard let matchId = try? match.requireID(), let state = Game.State(match: match) else {
-			throw Abort(.internalServerError, reason: "Cannot add match without ID to GameManager.")
-		}
-
-		self.games[matchId] = Game(state: state)
-		return req.eventLoop.makeSucceededFuture(match)
+	func addGame(_ game: Game, on req: Request) throws -> EventLoopFuture<Void> {
+		req.logger.debug("Adding game (\(String(describing: game.state.id)))")
+		self.games[game.state.id] = game
+		return req.eventLoop.makeSucceededFuture(())
 	}
 
-	func add(
-		user userId: User.IDValue,
-		to matchId: Match.IDValue,
-		on req: Request
-	) throws -> EventLoopFuture<Match.Join.Response> {
+	func addUser(_ user: User, to match: Match, on req: Request) throws -> EventLoopFuture<Void> {
+		let userId = try user.requireID()
+		let matchId = try match.requireID()
 		req.logger.debug("Adding user (\(userId)) to (\(matchId))")
+
 		guard let game = games[matchId] else {
 			req.logger.debug("Match (\(matchId)) is not open to join")
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
 		}
 
 		guard game.state.host.id != userId else {
-			return try reconnect(host: userId, to: matchId, on: req)
+			return req.eventLoop.makeSucceededFuture(())
 		}
 
 		guard game.state.opponent?.id == nil || game.state.opponent?.id == userId else {
@@ -46,44 +44,19 @@ final class GameManager {
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
 		}
 
-		return User.find(userId, on: req.db)
-			.unwrap(or: Abort(.notFound, reason: "User \(userId) could not be found"))
-			.flatMap { opponent in
-				Match.query(on: req.db)
-					.with(\.$host)
-					.filter(\.$id == matchId)
-					.first()
-					.unwrap(or: Abort(.notFound, reason: "Match \(matchId) could not be found"))
-					.flatMap { $0.add(opponent: userId, on: req) }
-					.flatMapThrowing {
-						req.logger.debug("Added user (\(userId)) to match (\(matchId))")
-						self.games[matchId]?.state.opponent = .init(id: userId)
-						self.games[matchId]?.host?.webSocket.send(response: .playerJoined(userId))
-
-						return try Match.Join.Response(from: $0, withHost: $0.host, withOpponent: opponent)
-					}
+		return match.add(opponent: userId, on: req)
+			.map { _ in
+				req.logger.debug("Added user (\(userId)) to match (\(matchId))")
+				self.games[matchId]?.state.opponent = Game.Player(id: userId)
+				self.games[matchId]?.host?.webSocket.send(response: .playerJoined(userId))
+				return ()
 			}
 	}
 
-	private func reconnect(
-		host: User.IDValue,
-		to matchId: Match.IDValue,
-		on req: Request
-	) throws -> EventLoopFuture<Match.Join.Response> {
-		req.logger.debug("Reconnecting user (\(host)) to match (\(matchId))")
-		return Match.query(on: req.db)
-			.with(\.$host)
-			.with(\.$opponent)
-			.filter(\.$id == matchId)
-			.first()
-			.unwrap(or: Abort(.notFound))
-			.flatMapThrowing {
-				try Match.Join.Response(from: $0, withHost: $0.host, withOpponent: $0.opponent)
-			}
-	}
+	// MARK: Removing players
 
 	@discardableResult
-	func remove(
+	private func remove(
 		opponent: User.IDValue,
 		from matchId: Match.IDValue,
 		on req: Request
@@ -112,7 +85,7 @@ final class GameManager {
 
 	// MARK: Game Flow
 
-	func startMatch(context: WebSocketContext, game: Game) throws {
+	private func startMatch(context: WebSocketContext, game: Game) throws {
 		context.request.logger.debug("Starting match (\(game.state.id))")
 		guard !game.state.hasStarted else {
 			context.request.logger.debug("Already started match (\(game.state.id))")
@@ -139,7 +112,7 @@ final class GameManager {
 			}
 	}
 
-	func endMatch(context: WebSocketContext, game: Game) throws {
+	private func endMatch(context: WebSocketContext, game: Game) throws {
 		context.request.logger.debug("Ending match (\(game.state.id))")
 		guard game.state.hasEnded else {
 			context.request.logger.debug("Cannot end match (\(game.state.id)) that has not ended")
@@ -165,7 +138,7 @@ final class GameManager {
 			}
 	}
 
-	func forfeitMatch(winner: User.IDValue, context: WebSocketContext, game: Game) throws {
+	private func forfeitMatch(winner: User.IDValue, context: WebSocketContext, game: Game) throws {
 		context.request.logger.debug("Forfeiting match (\(game.state.id))")
 		guard game.state.hasStarted else {
 			context.request.logger.debug("Cannot forfeit match (\(game.state.id))")
@@ -192,7 +165,7 @@ final class GameManager {
 	}
 
 	@discardableResult
-	func delete(match matchId: Match.IDValue, on req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
+	private func delete(match matchId: Match.IDValue, on req: Request) throws -> EventLoopFuture<HTTPResponseStatus> {
 		req.logger.debug("Deleting match (\(matchId))")
 		return Match.find(matchId, on: req.db)
 			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(matchId)"))
@@ -201,7 +174,7 @@ final class GameManager {
 	}
 
 	@discardableResult
-	func updateOptions(
+	private func updateOptions(
 		matchId: Match.IDValue,
 		options: Set<Match.Option>,
 		gameOptions: Set<GameState.Option>,
@@ -216,7 +189,7 @@ final class GameManager {
 
 	// MARK: WebSocket
 
-	func joinMatch(on req: Request, ws: WebSocket, user: User) throws {
+	func connectPlayer(_ user: User, ws: WebSocket, on req: Request) throws {
 		let userId = try user.requireID()
 		let wsContext = WebSocketContext(webSocket: ws, request: req)
 
@@ -283,7 +256,7 @@ final class GameManager {
 		}
 	}
 
-	func spectateMatch(on req: Request, ws: WebSocket, user: User) throws {
+	func connectSpectator(_ user: User, ws: WebSocket, on req: Request) throws {
 		let userId = try user.requireID()
 		let wsContext = WebSocketContext(webSocket: ws, request: req)
 

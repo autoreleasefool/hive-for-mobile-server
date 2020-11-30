@@ -8,13 +8,13 @@
 import Vapor
 
 protocol GameService {
-	var activeGames: [Game] { get }
-
 	func addGame(_ game: Game, on req: Request) throws -> EventLoopFuture<Void>
 	func addUser(_ user: User, to match: Match, on req: Request) throws -> EventLoopFuture<Void>
 
 	func connectPlayer(_ user: User, ws: WebSocket, on req: Request) throws
 	func connectSpectator(_ user: User, ws: WebSocket, on req: Request) throws
+
+	func doesActiveGameExist(withId gameId: Match.IDValue) -> Bool
 }
 
 // MARK: - Storage

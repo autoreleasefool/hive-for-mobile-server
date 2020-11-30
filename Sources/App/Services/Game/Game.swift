@@ -177,27 +177,27 @@ extension Game {
 
 		// MARK: Connection
 
-		func userIsReconnecting(_ userId: User.IDValue) {
+		func userDidDisconnect(_ userId: User.IDValue) {
 			if userId == host.id {
-				host.hasReconnectedSuccessfully = false
+				host.isConnected = false
 			} else if userId == opponent?.id {
-				opponent?.hasReconnectedSuccessfully = false
+				opponent?.isConnected = false
 			}
 		}
 
-		func userDidReconnect(_ userId: User.IDValue) {
+		func userDidConnect(_ userId: User.IDValue) {
 			if userId == host.id {
-				host.hasReconnectedSuccessfully = true
+				host.isConnected = true
 			} else if userId == opponent?.id {
-				opponent?.hasReconnectedSuccessfully = true
+				opponent?.isConnected = true
 			}
 		}
 
-		func hasUserReconnected(_ userId: User.IDValue) -> Bool {
+		func isUserConnected(_ userId: User.IDValue) -> Bool {
 			if userId == host.id {
-				return host.hasReconnectedSuccessfully
+				return host.isConnected
 			} else if userId == opponent?.id {
-				return opponent?.hasReconnectedSuccessfully ?? false
+				return opponent?.isConnected ?? false
 			}
 
 			return false
@@ -210,8 +210,8 @@ extension Game {
 extension Game {
 	struct Player {
 		let id: User.IDValue
+		var isConnected: Bool = true
 		var isReady: Bool = false
-		var hasReconnectedSuccessfully = false
 	}
 }
 

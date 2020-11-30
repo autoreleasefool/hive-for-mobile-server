@@ -11,12 +11,13 @@ import Vapor
 
 final class GameManager: GameService {
 	private var games: [Match.IDValue: Game] = [:]
-	
-	var activeGames: [Game] {
-		Array(games.values)
-	}
 
 	init() {}
+
+	func doesActiveGameExist(withId gameId: Match.IDValue) -> Bool {
+		guard let game = games[gameId] else { return false }
+		return game.state.host.isConnected || game.state.opponent?.isConnected == true
+	}
 
 	// MARK: Adding players
 
@@ -73,9 +74,6 @@ final class GameManager: GameService {
 		}
 
 		games[matchId]?.setContext(wsContext, forUser: userId)
-		games[matchId]?.state.userIsReconnecting(userId)
-
-		#warning("FIXME: need to keep clients in sync when one disconnects or encounters error")
 
 		ws.pingInterval = .seconds(30)
 		ws.onText { [unowned self] ws, text in
@@ -110,15 +108,14 @@ final class GameManager: GameService {
 			} catch {
 				self.handle(error: error, userId: userId, game: game)
 			}
+		}
+		_ = ws.onClose.always { [unowned self] _ in
+			guard let game = self.games[matchId] else { return }
+			game.state.userDidDisconnect(userId)
 
-			// If the user is rejoining a game in progress, send them commands required to start the game
-			if let opponentId = game.state.opponent(for: userId),
-				let state = game.state.hiveGameState,
-				!game.state.hasUserReconnected(userId) {
-				game.state.userDidReconnect(userId)
-				ws.send(response: .setPlayerReady(userId, true))
-				ws.send(response: .setPlayerReady(opponentId, true))
-				ws.send(response: .state(state))
+			if game.state.host.id == userId {
+				let fiveMinutesFromNow = Date(timeIntervalSinceNow: 60 * 5)
+				// TODO: schedule clean up of match
 			}
 		}
 	}
@@ -157,8 +154,8 @@ final class GameManager: GameService {
 		}
 
 		game.addSpectator(wsContext, asUser: userId)
-		_ = ws.onClose.always { [weak self] _ in
-			self?.games[matchId]?.removeSpectator(userId)
+		_ = ws.onClose.always { [unowned self] _ in
+			self.games[matchId]?.removeSpectator(userId)
 		}
 
 		ws.pingInterval = .seconds(30)

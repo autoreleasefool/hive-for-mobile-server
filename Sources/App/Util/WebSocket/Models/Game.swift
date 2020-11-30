@@ -211,10 +211,3 @@ extension Game {
 		var hasReconnectedSuccessfully = false
 	}
 }
-
-// MARK: - WebSocketContext
-
-struct WebSocketContext {
-	let webSocket: WebSocket
-	let request: Request
-}

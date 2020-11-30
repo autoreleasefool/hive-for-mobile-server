@@ -11,6 +11,7 @@ import Vapor
 
 final class GameManager: GameService {
 	private var games: [Match.IDValue: Game] = [:]
+	
 	var activeGames: [Game] {
 		Array(games.values)
 	}
@@ -51,6 +52,120 @@ final class GameManager: GameService {
 				self.games[matchId]?.host?.webSocket.send(response: .playerJoined(userId))
 				return ()
 			}
+	}
+
+	// MARK: Connecting players
+
+	func connectPlayer(_ user: User, ws: WebSocket, on req: Request) throws {
+		let userId = try user.requireID()
+		let wsContext = WebSocketContext(webSocket: ws, request: req)
+
+		guard let rawMatchId = req.parameters.get(MatchController.Parameter.match.rawValue),
+			let matchId = Match.IDValue(uuidString: rawMatchId) else {
+			throw Abort(.badRequest, reason: "Match ID could not be determined from path")
+		}
+
+		req.logger.debug("Connecting to websocket: user (\(userId)) to (\(matchId))")
+
+		guard games[matchId]?.userIsPlaying(userId) == true else {
+			req.logger.debug("Cannot connect user (\(userId)) to (\(matchId))")
+			throw Abort(.forbidden, reason: "Cannot connect to a game you are not a part of")
+		}
+
+		games[matchId]?.setContext(wsContext, forUser: userId)
+		games[matchId]?.state.userIsReconnecting(userId)
+
+		#warning("FIXME: need to keep clients in sync when one disconnects or encounters error")
+
+		ws.pingInterval = .seconds(30)
+		ws.onText { [unowned self] ws, text in
+			let reqId = UUID()
+			req.logger.debug("[\(reqId)]: \(text)")
+			guard let game = self.games[matchId] else {
+				req.logger.debug(#"Match with ID "\#(matchId)" is not open to play."#)
+				return
+			}
+
+			guard let context = game.context(forUser: userId) else {
+				req.logger.debug("[\(reqId)]: Invalid command")
+				ws.send(error: .invalidCommand, fromUser: userId)
+				return
+			}
+
+			do {
+				let message = try GameClientMessage(from: text)
+				let resolver = try GameActionResolver(game: game, userId: userId, message: message)
+				resolver.resolve { [unowned self] result in
+					switch result {
+					case .success(let result):
+						do {
+							try self.handle(result: result, context: context, game: game)
+						} catch {
+							handle(error: error, userId: userId, game: game)
+						}
+					case .failure(let error):
+						self.handleServerError(error: error, userId: userId, game: game)
+					}
+				}
+			} catch {
+				self.handle(error: error, userId: userId, game: game)
+			}
+
+			// If the user is rejoining a game in progress, send them commands required to start the game
+			if let opponentId = game.state.opponent(for: userId),
+				let state = game.state.hiveGameState,
+				!game.state.hasUserReconnected(userId) {
+				game.state.userDidReconnect(userId)
+				ws.send(response: .setPlayerReady(userId, true))
+				ws.send(response: .setPlayerReady(opponentId, true))
+				ws.send(response: .state(state))
+			}
+		}
+	}
+
+	func connectSpectator(_ user: User, ws: WebSocket, on req: Request) throws {
+		let userId = try user.requireID()
+		let wsContext = WebSocketContext(webSocket: ws, request: req)
+
+		guard let rawMatchId = req.parameters.get(MatchController.Parameter.match.rawValue),
+			let matchId = Match.IDValue(uuidString: rawMatchId) else {
+			throw Abort(.badRequest, reason: "Match ID could not be determined from path")
+		}
+
+		req.logger.debug("Connecting spectator to websocket: user (\(userId)) to match (\(matchId))")
+
+		guard let game = games[matchId] else {
+			req.logger.debug("Match (\(matchId)) not open to spectate")
+			throw Abort(.badRequest, reason: "Match \(matchId) is not open to spectate")
+		}
+
+		guard !game.userIsPlaying(userId) else {
+			req.logger.debug("User (\(userId)) cannot spectate a match they are participating in")
+			throw Abort(.badRequest, reason: "Cannot spectate a match you are participating in")
+		}
+
+		guard game.state.opponent != nil,
+			game.state.hasStarted,
+			let state = game.state.hiveGameState else {
+			req.logger.debug("Match (\(matchId)) has not started")
+			throw Abort(.badRequest, reason: "Cannot spectate a match that has not started")
+		}
+
+		guard !game.userIsSpectating(userId) else {
+			req.logger.debug("User (\(userId)) already spectating match (\(matchId))")
+			throw Abort(.badRequest, reason: "Cannot spectate a match you are already spectating")
+		}
+
+		game.addSpectator(wsContext, asUser: userId)
+		_ = ws.onClose.always { [weak self] _ in
+			self?.games[matchId]?.removeSpectator(userId)
+		}
+
+		ws.pingInterval = .seconds(30)
+		ws.onText { ws, text in
+			ws.send(error: .invalidCommand, fromUser: userId)
+		}
+		ws.send(response: .state(state))
 	}
 
 	// MARK: Removing players
@@ -185,120 +300,6 @@ final class GameManager: GameService {
 			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(matchId)"))
 			.flatMap { $0.updateOptions(options: options, gameOptions: gameOptions, on: req) }
 			.transform(to: .ok)
-	}
-
-	// MARK: WebSocket
-
-	func connectPlayer(_ user: User, ws: WebSocket, on req: Request) throws {
-		let userId = try user.requireID()
-		let wsContext = WebSocketContext(webSocket: ws, request: req)
-
-		guard let rawMatchId = req.parameters.get(MatchController.Parameter.match.rawValue),
-			let matchId = Match.IDValue(uuidString: rawMatchId) else {
-			throw Abort(.badRequest, reason: "Match ID could not be determined from path")
-		}
-
-		req.logger.debug("Connecting to websocket: user (\(userId)) to (\(matchId))")
-
-		guard games[matchId]?.userIsPlaying(userId) == true else {
-			req.logger.debug("Cannot connect user (\(userId)) to (\(matchId))")
-			throw Abort(.forbidden, reason: "Cannot connect to a game you are not a part of")
-		}
-
-		games[matchId]?.setContext(wsContext, forUser: userId)
-		games[matchId]?.state.userIsReconnecting(userId)
-
-		#warning("FIXME: need to keep clients in sync when one disconnects or encounters error")
-
-		ws.pingInterval = .seconds(30)
-		ws.onText { [unowned self] ws, text in
-			let reqId = UUID()
-			req.logger.debug("[\(reqId)]: \(text)")
-			guard let game = self.games[matchId] else {
-				req.logger.debug(#"Match with ID "\#(matchId)" is not open to play."#)
-				return
-			}
-
-			guard let context = game.context(forUser: userId) else {
-				req.logger.debug("[\(reqId)]: Invalid command")
-				ws.send(error: .invalidCommand, fromUser: userId)
-				return
-			}
-
-			do {
-				let message = try GameClientMessage(from: text)
-				let resolver = try GameActionResolver(game: game, userId: userId, message: message)
-				resolver.resolve { [unowned self] result in
-					switch result {
-					case .success(let result):
-						do {
-							try self.handle(result: result, context: context, game: game)
-						} catch {
-							handle(error: error, userId: userId, game: game)
-						}
-					case .failure(let error):
-						self.handleServerError(error: error, userId: userId, game: game)
-					}
-				}
-			} catch {
-				self.handle(error: error, userId: userId, game: game)
-			}
-
-			// If the user is rejoining a game in progress, send them commands required to start the game
-			if let opponentId = game.state.opponent(for: userId),
-				let state = game.state.hiveGameState,
-				!game.state.hasUserReconnected(userId) {
-				game.state.userDidReconnect(userId)
-				ws.send(response: .setPlayerReady(userId, true))
-				ws.send(response: .setPlayerReady(opponentId, true))
-				ws.send(response: .state(state))
-			}
-		}
-	}
-
-	func connectSpectator(_ user: User, ws: WebSocket, on req: Request) throws {
-		let userId = try user.requireID()
-		let wsContext = WebSocketContext(webSocket: ws, request: req)
-
-		guard let rawMatchId = req.parameters.get(MatchController.Parameter.match.rawValue),
-			let matchId = Match.IDValue(uuidString: rawMatchId) else {
-			throw Abort(.badRequest, reason: "Match ID could not be determined from path")
-		}
-
-		req.logger.debug("Connecting spectator to websocket: user (\(userId)) to match (\(matchId))")
-
-		guard let game = games[matchId] else {
-			req.logger.debug("Match (\(matchId)) not open to spectate")
-			throw Abort(.badRequest, reason: "Match \(matchId) is not open to spectate")
-		}
-
-		guard !game.userIsPlaying(userId) else {
-			req.logger.debug("User (\(userId)) cannot spectate a match they are participating in")
-			throw Abort(.badRequest, reason: "Cannot spectate a match you are participating in")
-		}
-
-		guard game.state.opponent != nil,
-			game.state.hasStarted,
-			let state = game.state.hiveGameState else {
-			req.logger.debug("Match (\(matchId)) has not started")
-			throw Abort(.badRequest, reason: "Cannot spectate a match that has not started")
-		}
-
-		guard !game.userIsSpectating(userId) else {
-			req.logger.debug("User (\(userId)) already spectating match (\(matchId))")
-			throw Abort(.badRequest, reason: "Cannot spectate a match you are already spectating")
-		}
-
-		game.addSpectator(wsContext, asUser: userId)
-		_ = ws.onClose.always { [weak self] _ in
-			self?.games[matchId]?.removeSpectator(userId)
-		}
-
-		ws.pingInterval = .seconds(30)
-		ws.onText { ws, text in
-			ws.send(error: .invalidCommand, fromUser: userId)
-		}
-		ws.send(response: .state(state))
 	}
 
 	// MARK: Resolvers

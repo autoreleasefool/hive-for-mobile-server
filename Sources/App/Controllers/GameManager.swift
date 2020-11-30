@@ -10,7 +10,7 @@ import HiveEngine
 import Vapor
 
 final class GameManager {
-	private var sessions: [Match.IDValue: Game.Session] = [:]
+	private var games: [Match.IDValue: Game] = [:]
 
 	init() {}
 
@@ -18,11 +18,11 @@ final class GameManager {
 
 	func add(_ match: Match, on req: Request) throws -> EventLoopFuture<Match> {
 		req.logger.debug("Adding match (\(String(describing: match.id)))")
-		guard let matchId = try? match.requireID(), let game = Game(match: match) else {
+		guard let matchId = try? match.requireID(), let state = Game.State(match: match) else {
 			throw Abort(.internalServerError, reason: "Cannot add match without ID to GameManager.")
 		}
 
-		self.sessions[matchId] = Game.Session(game: game)
+		self.games[matchId] = Game(state: state)
 		return req.eventLoop.makeSucceededFuture(match)
 	}
 
@@ -32,16 +32,16 @@ final class GameManager {
 		on req: Request
 	) throws -> EventLoopFuture<Match.Join.Response> {
 		req.logger.debug("Adding user (\(userId)) to (\(matchId))")
-		guard let session = sessions[matchId] else {
+		guard let game = games[matchId] else {
 			req.logger.debug("Match (\(matchId)) is not open to join")
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open to join"#)
 		}
 
-		guard session.game.host.id != userId else {
-			return try reconnect(host: userId, to: matchId, session: session, on: req)
+		guard game.state.host.id != userId else {
+			return try reconnect(host: userId, to: matchId, on: req)
 		}
 
-		guard session.game.opponent?.id == nil || session.game.opponent?.id == userId else {
+		guard game.state.opponent?.id == nil || game.state.opponent?.id == userId else {
 			req.logger.debug("Match (\(matchId)) is full")
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is full"#)
 		}
@@ -57,8 +57,8 @@ final class GameManager {
 					.flatMap { $0.add(opponent: userId, on: req) }
 					.flatMapThrowing {
 						req.logger.debug("Added user (\(userId)) to match (\(matchId))")
-						self.sessions[matchId]?.game.opponent = .init(id: userId)
-						self.sessions[matchId]?.host?.webSocket.send(response: .playerJoined(userId))
+						self.games[matchId]?.state.opponent = .init(id: userId)
+						self.games[matchId]?.host?.webSocket.send(response: .playerJoined(userId))
 
 						return try Match.Join.Response(from: $0, withHost: $0.host, withOpponent: opponent)
 					}
@@ -68,7 +68,6 @@ final class GameManager {
 	private func reconnect(
 		host: User.IDValue,
 		to matchId: Match.IDValue,
-		session: Game.Session,
 		on req: Request
 	) throws -> EventLoopFuture<Match.Join.Response> {
 		req.logger.debug("Reconnecting user (\(host)) to match (\(matchId))")
@@ -90,12 +89,12 @@ final class GameManager {
 		on req: Request
 	) throws -> EventLoopFuture<HTTPResponseStatus> {
 		req.logger.debug("Removing (\(opponent)) from (\(matchId))")
-		guard let session = sessions[matchId] else {
+		guard let game = games[matchId] else {
 			req.logger.debug("Match (\(matchId)) is not open")
 			throw Abort(.badRequest, reason: #"Match \#(matchId) is not open"#)
 		}
 
-		guard session.game.opponent?.id == opponent else {
+		guard game.state.opponent?.id == opponent else {
 			req.logger.debug("User (\(opponent)) is not part of (\(matchId))")
 			throw Abort(.badRequest, reason: #"Cannot leave match \#(matchId) you are not a part of"#)
 		}
@@ -105,88 +104,88 @@ final class GameManager {
 			.flatMap { $0.remove(opponent: opponent, on: req) }
 			.map { [weak self] _ in
 				req.logger.debug("Removed user (\(opponent)) from (\(matchId))")
-				self?.sessions[matchId]?.game.opponent = nil
-				self?.sessions[matchId]?.host?.webSocket.send(response: .playerLeft(opponent))
+				self?.games[matchId]?.state.opponent = nil
+				self?.games[matchId]?.host?.webSocket.send(response: .playerLeft(opponent))
 				return .ok
 			}
 	}
 
 	// MARK: Game Flow
 
-	func startMatch(context: WebSocketContext, session: Game.Session) throws {
-		context.request.logger.debug("Starting match (\(session.game.id))")
-		guard !session.game.hasStarted else {
-			context.request.logger.debug("Already started match (\(session.game.id))")
-			throw Abort(.internalServerError, reason: #"Cannot start match "\#(session.game.id)" that already started"#)
+	func startMatch(context: WebSocketContext, game: Game) throws {
+		context.request.logger.debug("Starting match (\(game.state.id))")
+		guard !game.state.hasStarted else {
+			context.request.logger.debug("Already started match (\(game.state.id))")
+			throw Abort(.internalServerError, reason: #"Cannot start match "\#(game.state.id)" that already started"#)
 		}
 
-		Match.find(session.game.id, on: context.request.db)
-			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(session.game.id)"))
+		Match.find(game.state.id, on: context.request.db)
+			.unwrap(or: Abort(.notFound, reason: "Cannot find match with ID \(game.state.id)"))
 			.flatMapThrowing { try $0.begin(on: context.request) }
 			.whenComplete { result in
 				switch result {
 				case .success:
-					context.request.logger.debug("Started match (\(session.game.id)). Sending state to users")
-					let state = GameState(options: session.game.gameOptions)
-					session.game.state = state
-					session.sendResponseToAll(.state(state))
+					context.request.logger.debug("Started match (\(game.state.id)). Sending state to users")
+					let state = GameState(options: game.state.gameOptions)
+					game.state.hiveGameState = state
+					game.sendResponseToAll(.state(state))
 				case .failure:
-					context.request.logger.debug("Failed to start match (\(session.game.id))")
-					self.handleServerError(error: .failedToStartMatch, userId: session.game.host.id, session: session)
-					if let opponent = session.game.opponent?.id {
-						self.handleServerError(error: .failedToStartMatch, userId: opponent, session: session)
+					context.request.logger.debug("Failed to start match (\(game.state.id))")
+					self.handleServerError(error: .failedToStartMatch, userId: game.state.host.id, game: game)
+					if let opponent = game.state.opponent?.id {
+						self.handleServerError(error: .failedToStartMatch, userId: opponent, game: game)
 					}
 				}
 			}
 	}
 
-	func endMatch(context: WebSocketContext, session: Game.Session) throws {
-		context.request.logger.debug("Ending match (\(session.game.id))")
-		guard session.game.hasEnded else {
-			context.request.logger.debug("Cannot end match (\(session.game.id)) that has not ended")
-			throw Abort(.internalServerError, reason: #"Cannot end match "\#(session.game.id)" before game has ended"#)
+	func endMatch(context: WebSocketContext, game: Game) throws {
+		context.request.logger.debug("Ending match (\(game.state.id))")
+		guard game.state.hasEnded else {
+			context.request.logger.debug("Cannot end match (\(game.state.id)) that has not ended")
+			throw Abort(.internalServerError, reason: #"Cannot end match "\#(game.state.id)" before game has ended"#)
 		}
 
-		sessions[session.game.id] = nil
+		games[game.state.id] = nil
 
-		Match.find(session.game.id, on: context.request.db)
-			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
-			.flatMapThrowing { try $0.end(winner: session.game.winner, on: context.request) }
+		Match.find(game.state.id, on: context.request.db)
+			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(game.state.id)"))
+			.flatMapThrowing { try $0.end(winner: game.state.winner, on: context.request) }
 			.whenComplete { result in
 				switch result {
 				case .success:
-					context.request.logger.debug("Successfully ended match (\(session.game.id))")
+					context.request.logger.debug("Successfully ended match (\(game.state.id))")
 				case .failure:
-					context.request.logger.debug("Failed to end match (\(session.game.id))")
-					self.handleServerError(error: .failedToEndMatch, userId: session.game.host.id, session: session)
-					if let opponent = session.game.opponent?.id {
-						self.handleServerError(error: .failedToEndMatch, userId: opponent, session: session)
+					context.request.logger.debug("Failed to end match (\(game.state.id))")
+					self.handleServerError(error: .failedToEndMatch, userId: game.state.host.id, game: game)
+					if let opponent = game.state.opponent?.id {
+						self.handleServerError(error: .failedToEndMatch, userId: opponent, game: game)
 					}
 				}
 			}
 	}
 
-	func forfeitMatch(winner: User.IDValue, context: WebSocketContext, session: Game.Session) throws {
-		context.request.logger.debug("Forfeiting match (\(session.game.id))")
-		guard session.game.hasStarted else {
-			context.request.logger.debug("Cannot forfeit match (\(session.game.id))")
-			throw Abort(.internalServerError, reason: #"Cannot end match "\#(session.game.id)" before game has ended"#)
+	func forfeitMatch(winner: User.IDValue, context: WebSocketContext, game: Game) throws {
+		context.request.logger.debug("Forfeiting match (\(game.state.id))")
+		guard game.state.hasStarted else {
+			context.request.logger.debug("Cannot forfeit match (\(game.state.id))")
+			throw Abort(.internalServerError, reason: #"Cannot end match "\#(game.state.id)" before game has ended"#)
 		}
 
-		sessions[session.game.id] = nil
+		games[game.state.id] = nil
 
-		Match.find(session.game.id, on: context.request.db)
-			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(session.game.id)"))
+		Match.find(game.state.id, on: context.request.db)
+			.unwrap(or: Abort(.badRequest, reason: "Cannot find match with ID \(game.state.id)"))
 			.flatMapThrowing { try $0.end(winner: winner, on: context.request) }
 			.whenComplete { result in
 				switch result {
 				case .success:
-					context.request.logger.debug("Successfully forfeit match (\(session.game.id))")
+					context.request.logger.debug("Successfully forfeit match (\(game.state.id))")
 				case .failure:
-					context.request.logger.debug("Failed to forfeit match (\(session.game.id))")
-					self.handleServerError(error: .failedToEndMatch, userId: session.game.host.id, session: session)
-					if let opponent = session.game.opponent?.id {
-						self.handleServerError(error: .failedToEndMatch, userId: opponent, session: session)
+					context.request.logger.debug("Failed to forfeit match (\(game.state.id))")
+					self.handleServerError(error: .failedToEndMatch, userId: game.state.host.id, game: game)
+					if let opponent = game.state.opponent?.id {
+						self.handleServerError(error: .failedToEndMatch, userId: opponent, game: game)
 					}
 				}
 			}
@@ -228,13 +227,13 @@ final class GameManager {
 
 		req.logger.debug("Connecting to websocket: user (\(userId)) to (\(matchId))")
 
-		guard sessions[matchId]?.contains(userId) == true else {
+		guard games[matchId]?.userIsPlaying(userId) == true else {
 			req.logger.debug("Cannot connect user (\(userId)) to (\(matchId))")
 			throw Abort(.forbidden, reason: "Cannot connect to a game you are not a part of")
 		}
 
-		sessions[matchId]?.add(context: wsContext, forUser: userId)
-		sessions[matchId]?.game.playerIsReconnecting(player: userId)
+		games[matchId]?.setContext(wsContext, forUser: userId)
+		games[matchId]?.state.userIsReconnecting(userId)
 
 		#warning("FIXME: need to keep clients in sync when one disconnects or encounters error")
 
@@ -242,12 +241,12 @@ final class GameManager {
 		ws.onText { [unowned self] ws, text in
 			let reqId = UUID()
 			req.logger.debug("[\(reqId)]: \(text)")
-			guard let session = self.sessions[matchId] else {
+			guard let game = self.games[matchId] else {
 				req.logger.debug(#"Match with ID "\#(matchId)" is not open to play."#)
 				return
 			}
 
-			guard let context = session.context(forUser: userId) else {
+			guard let context = game.context(forUser: userId) else {
 				req.logger.debug("[\(reqId)]: Invalid command")
 				ws.send(error: .invalidCommand, fromUser: userId)
 				return
@@ -255,28 +254,28 @@ final class GameManager {
 
 			do {
 				let message = try GameClientMessage(from: text)
-				let resolver = try GameActionResolver(session: session, userId: userId, message: message)
+				let resolver = try GameActionResolver(game: game, userId: userId, message: message)
 				resolver.resolve { [unowned self] result in
 					switch result {
 					case .success(let result):
 						do {
-							try self.handle(result: result, context: context, session: session)
+							try self.handle(result: result, context: context, game: game)
 						} catch {
-							handle(error: error, userId: userId, session: session)
+							handle(error: error, userId: userId, game: game)
 						}
 					case .failure(let error):
-						self.handleServerError(error: error, userId: userId, session: session)
+						self.handleServerError(error: error, userId: userId, game: game)
 					}
 				}
 			} catch {
-				self.handle(error: error, userId: userId, session: session)
+				self.handle(error: error, userId: userId, game: game)
 			}
 
 			// If the user is rejoining a game in progress, send them commands required to start the game
-			if let opponentId = session.game.opponent(for: userId),
-				let state = session.game.state,
-				!session.game.hasPlayerReconnected(player: userId) {
-				session.game.playerDidReconnect(player: userId)
+			if let opponentId = game.state.opponent(for: userId),
+				let state = game.state.hiveGameState,
+				!game.state.hasUserReconnected(userId) {
+				game.state.userDidReconnect(userId)
 				ws.send(response: .setPlayerReady(userId, true))
 				ws.send(response: .setPlayerReady(opponentId, true))
 				ws.send(response: .state(state))
@@ -295,31 +294,31 @@ final class GameManager {
 
 		req.logger.debug("Connecting spectator to websocket: user (\(userId)) to match (\(matchId))")
 
-		guard let session = sessions[matchId] else {
+		guard let game = games[matchId] else {
 			req.logger.debug("Match (\(matchId)) not open to spectate")
 			throw Abort(.badRequest, reason: "Match \(matchId) is not open to spectate")
 		}
 
-		guard !session.contains(userId) else {
+		guard !game.userIsPlaying(userId) else {
 			req.logger.debug("User (\(userId)) cannot spectate a match they are participating in")
 			throw Abort(.badRequest, reason: "Cannot spectate a match you are participating in")
 		}
 
-		guard session.game.opponent != nil,
-			session.game.hasStarted,
-			let state = session.game.state else {
+		guard game.state.opponent != nil,
+			game.state.hasStarted,
+			let state = game.state.hiveGameState else {
 			req.logger.debug("Match (\(matchId)) has not started")
 			throw Abort(.badRequest, reason: "Cannot spectate a match that has not started")
 		}
 
-		guard !session.userIsSpectating(userId: userId) else {
+		guard !game.userIsSpectating(userId) else {
 			req.logger.debug("User (\(userId)) already spectating match (\(matchId))")
 			throw Abort(.badRequest, reason: "Cannot spectate a match you are already spectating")
 		}
 
-		session.addSpectator(context: wsContext, user: userId)
+		game.addSpectator(wsContext, asUser: userId)
 		_ = ws.onClose.always { [weak self] _ in
-			self?.sessions[matchId]?.removeSpectator(userId)
+			self?.games[matchId]?.removeSpectator(userId)
 		}
 
 		ws.pingInterval = .seconds(30)
@@ -334,22 +333,22 @@ final class GameManager {
 	private func handle(
 		result: GameActionResolver.Result?,
 		context: WebSocketContext,
-		session: Game.Session
+		game: Game
 	) throws {
 		switch result {
 		case .shouldStartMatch:
-			try startMatch(context: context, session: session)
+			try startMatch(context: context, game: game)
 		case .shouldEndMatch:
-			try endMatch(context: context, session: session)
+			try endMatch(context: context, game: game)
 		case .shouldUpdateOptions:
-			try updateOptions(matchId: session.game.id, options: session.game.options, gameOptions: session.game.gameOptions, on: context.request)
+			try updateOptions(matchId: game.state.id, options: game.state.options, gameOptions: game.state.gameOptions, on: context.request)
 		case .shouldForfeitMatch(let winner):
-			try forfeitMatch(winner: winner, context: context, session: session)
+			try forfeitMatch(winner: winner, context: context, game: game)
 		case .shouldRemoveOpponent(let user):
-			try remove(opponent: user, from: session.game.id, on: context.request)
+			try remove(opponent: user, from: game.state.id, on: context.request)
 		case .shouldDeleteMatch:
-			sessions[session.game.id] = nil
-			try delete(match: session.game.id, on: context.request)
+			games[game.state.id] = nil
+			try delete(match: game.state.id, on: context.request)
 		case .none:
 			break
 		}
@@ -357,19 +356,19 @@ final class GameManager {
 
 	// MARK: Errors
 
-	private func handleServerError(error: GameServerResponseError, userId: User.IDValue, session: Game.Session) {
+	private func handleServerError(error: GameServerResponseError, userId: User.IDValue, game: Game) {
 		if error.shouldSendToOpponent {
-			session.sendErrorToAll(error, fromUser: userId)
+			game.sendErrorToAll(error, fromUser: userId)
 		} else {
-			session.context(forUser: userId)?.webSocket.send(error: error, fromUser: userId)
+			game.context(forUser: userId)?.webSocket.send(error: error, fromUser: userId)
 		}
 	}
 
-	private func handle(error: Error, userId: User.IDValue, session: Game.Session) {
+	private func handle(error: Error, userId: User.IDValue, game: Game) {
 		if let serverError = error as? GameServerResponseError {
-			self.handleServerError(error: serverError, userId: userId, session: session)
+			self.handleServerError(error: serverError, userId: userId, game: game)
 		} else {
-			self.handleServerError(error: .unknownError(nil), userId: userId, session: session)
+			self.handleServerError(error: .unknownError(nil), userId: userId, game: game)
 		}
 	}
 }

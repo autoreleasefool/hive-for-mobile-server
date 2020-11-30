@@ -12,17 +12,17 @@ import Vapor
 
 struct GameActionResolver {
 	private let id = UUID()
-	private let session: Game.Session
+	private let game: Game
 	private let userId: User.IDValue
 	private let message: GameClientMessage
 	private let context: WebSocketContext
 
-	init(session: Game.Session, userId: User.IDValue, message: GameClientMessage) throws {
-		self.session = session
+	init(game: Game, userId: User.IDValue, message: GameClientMessage) throws {
+		self.game = game
 		self.userId = userId
 		self.message = message
 
-		guard let context = session.context(forUser: userId) else {
+		guard let context = game.context(forUser: userId) else {
 			throw Error.invalidSession
 		}
 
@@ -46,18 +46,18 @@ struct GameActionResolver {
 
 	private func togglePlayerReady(completion: (Swift.Result<Result?, GameServerResponseError>) -> Void) {
 		debugLog("Toggling user {{user}} ready state")
-		guard !session.game.hasStarted,
-					session.game.opponent?.id != nil else {
+		guard !game.state.hasStarted,
+					game.state.opponent?.id != nil else {
 			return completion(.failure(.invalidCommand))
 		}
 
 		debugLog("Toggling ready state")
-		session.game.togglePlayerReady(player: userId)
+		game.state.toggleUserReady(userId)
 
-		let readyResponse = GameServerResponse.setPlayerReady(userId, session.game.isPlayerReady(player: userId))
-		session.sendResponseToAll(readyResponse)
+		let readyResponse = GameServerResponse.setPlayerReady(userId, game.state.isUserReady(userId))
+		game.sendResponseToAll(readyResponse)
 
-		guard session.game.host.isReady && session.game.opponent?.isReady == true else {
+		guard game.state.host.isReady && game.state.opponent?.isReady == true else {
 			return completion(.success(nil))
 		}
 
@@ -67,13 +67,13 @@ struct GameActionResolver {
 
 	private func play(movement: RelativeMovement, completion: @escaping (Swift.Result<Result?, GameServerResponseError>) -> Void) {
 		debugLog("User {{user}} is playing move {{move}}", args: ["move": movement.description])
-		guard session.game.hasStarted,
-					let state = session.game.state else {
+		guard game.state.hasStarted,
+					let state = game.state.hiveGameState else {
 			debugLog("Match {{match}} is not in a valid state to play")
 			return completion(.failure(.invalidCommand))
 		}
 
-		guard session.game.isPlayerTurn(player: userId) else {
+		guard game.state.isUserTurn(userId) else {
 			debugLog("User {{user}} is not the current player")
 			return completion(.failure(.notPlayerTurn))
 		}
@@ -84,14 +84,14 @@ struct GameActionResolver {
 		}
 
 		debugLog("Confirming move {{move}}", args: ["move": movement.description])
-		let matchMovement = MatchMovement(from: movement, userId: userId, matchId: session.game.id, ordinal: state.move)
+		let matchMovement = MatchMovement(from: movement, userId: userId, matchId: game.state.id, ordinal: state.move)
 		matchMovement.save(on: context.request.db)
 			.whenComplete { result in
 				switch result {
 				case .success:
-					session.sendResponseToAll(.state(state))
+					game.sendResponseToAll(.state(state))
 					if state.hasGameEnded {
-						session.sendResponseToAll(.gameOver(session.game.winner))
+						game.sendResponseToAll(.gameOver(game.state.winner))
 					}
 					completion(.success(nil))
 				case .failure(let error):
@@ -107,7 +107,7 @@ struct GameActionResolver {
 
 	private func send(message: String, completion: (Swift.Result<Result?, GameServerResponseError>) -> Void) {
 		debugLog("Sending message \"{{message}}\" to all users", args: ["message": message])
-		session.sendResponseToAll(.message(userId, message))
+		game.sendResponseToAll(.message(userId, message))
 		completion(.success(nil))
 	}
 
@@ -119,12 +119,12 @@ struct GameActionResolver {
 				"value": value.description
 			]
 		)
-		guard !session.game.hasStarted else {
+		guard !game.state.hasStarted else {
 			debugLog("Cannot set option for match {{match}} that has started")
 			return completion(.failure(.invalidCommand))
 		}
 
-		guard userId == session.game.host.id else {
+		guard userId == game.state.host.id else {
 			debugLog("User {{user}} is not the host")
 			return completion(.failure(.optionNonModifiable))
 		}
@@ -136,24 +136,24 @@ struct GameActionResolver {
 				"value": value.description
 			]
 		)
-		session.game.setOption(option, to: value)
-		session.sendResponseToAll(.setOption(option.asServerOption, value))
+		game.state.setOption(option, to: value)
+		game.sendResponseToAll(.setOption(option.asServerOption, value))
 		completion(.success(.shouldUpdateOptions))
 	}
 
 	private func forfeit(completion: (Swift.Result<Result?, GameServerResponseError>) -> Void) {
-		if session.game.hasStarted {
+		if game.state.hasStarted {
 			debugLog("User {{user}} is forfeiting match {{match}}")
-			guard let winner = session.game.opponent(for: userId) else {
+			guard let winner = game.state.opponent(for: userId) else {
 				return completion(.failure(.invalidCommand))
 			}
 
-			session.sendResponseToAll(.forfeit(userId))
+			game.sendResponseToAll(.forfeit(userId))
 			completion(.success(.shouldForfeitMatch(winner: winner)))
 		} else {
-			if session.game.host.id == userId {
+			if game.state.host.id == userId {
 				debugLog("Host {{user}} is leaving match {{match}}")
-				session.opponentContext(forUser: userId)?.webSocket.send(response: .playerLeft(userId))
+				game.opponentContext(forUser: userId)?.webSocket.send(response: .playerLeft(userId))
 				debugLog("Deleting match {{match}}")
 				completion(.success(.shouldDeleteMatch))
 			} else {
@@ -194,7 +194,7 @@ extension GameActionResolver {
 
 	private func replacingArguments(in message: String, args: [String: String]) -> String {
 		let partialMessage = message
-			.replacingAll(matching: #"\{\{match\}\}"#, with: args["match"] ?? session.game.id.description)
+			.replacingAll(matching: #"\{\{match\}\}"#, with: args["match"] ?? game.state.id.description)
 			.replacingAll(matching: #"\{\{user\}\}"#, with: args["user"] ?? userId.description)
 
 		return args.keys.reduce(partialMessage) { partialMessage, key in

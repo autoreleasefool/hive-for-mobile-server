@@ -30,6 +30,8 @@ enum GameServerResponse {
 	case forfeit(User.IDValue)
 	case playerJoined(User.IDValue)
 	case playerLeft(User.IDValue)
+	case spectatorJoined(name: String)
+	case spectatorLeft(name: String)
 }
 
 extension WebSocket {
@@ -52,6 +54,10 @@ extension WebSocket {
 			self.send("JOIN \(user)")
 		case .playerLeft(let user):
 			self.send("LEAVE \(user)")
+		case .spectatorJoined(let name):
+			self.send("SPECJOIN \(name)")
+		case .spectatorLeft(let name):
+			self.send("SPECLEAVE \(name)")
 		}
 	}
 

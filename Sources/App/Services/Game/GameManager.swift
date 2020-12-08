@@ -124,6 +124,7 @@ final class GameManager: GameService {
 
 	func connectSpectator(_ user: User, ws: WebSocket, on req: Request) throws {
 		let userId = try user.requireID()
+		let displayName = user.displayName
 		let wsContext = WebSocketContext(webSocket: ws, request: req)
 
 		guard let rawMatchId = req.parameters.get(MatchController.Parameter.match.rawValue),
@@ -155,13 +156,17 @@ final class GameManager: GameService {
 			throw Abort(.badRequest, reason: "Cannot spectate a match you are already spectating")
 		}
 
+		game.sendResponseToAll(.spectatorJoined(name: displayName))
 		game.addSpectator(wsContext, asUser: userId)
+
 		_ = ws.onClose.always { [unowned self] _ in
-			self.games[matchId]?.removeSpectator(userId)
+			guard let game = self.games[matchId] else { return }
+			game.removeSpectator(userId)
+			game.sendResponseToAll(.spectatorLeft(name: displayName))
 		}
 
 		ws.pingInterval = .seconds(30)
-		ws.onText { ws, text in
+		ws.onText { [unowned self] ws, text in
 			let reqId = UUID()
 			req.logger.debug("[\(reqId)]: \(text)")
 			guard let game = self.games[matchId] else {
@@ -170,7 +175,7 @@ final class GameManager: GameService {
 			}
 
 			if let message = try? GameClientMessage(from: text),
-				 case let .sendMessage = message,
+				 case .sendMessage = message,
 				 let resolver = try? GameActionResolver(game: game, userId: userId, message: message) {
 				resolver.resolve { _ in }
 			} else {

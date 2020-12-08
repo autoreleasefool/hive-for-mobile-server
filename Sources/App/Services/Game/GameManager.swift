@@ -162,7 +162,20 @@ final class GameManager: GameService {
 
 		ws.pingInterval = .seconds(30)
 		ws.onText { ws, text in
-			ws.send(error: .invalidCommand, fromUser: userId)
+			let reqId = UUID()
+			req.logger.debug("[\(reqId)]: \(text)")
+			guard let game = self.games[matchId] else {
+				req.logger.debug(#"Match with ID "\#(matchId)" is not open."#)
+				return
+			}
+
+			if let message = try? GameClientMessage(from: text),
+				 case let .sendMessage = message,
+				 let resolver = try? GameActionResolver(game: game, userId: userId, message: message) {
+				resolver.resolve { _ in }
+			} else {
+				ws.send(error: .invalidCommand, fromUser: userId)
+			}
 		}
 		ws.send(response: .state(state))
 	}

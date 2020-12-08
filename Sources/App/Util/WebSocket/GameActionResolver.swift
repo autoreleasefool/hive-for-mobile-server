@@ -198,7 +198,7 @@ extension GameActionResolver {
 			.replacingAll(matching: #"\{\{user\}\}"#, with: args["user"] ?? userId.description)
 
 		return args.keys.reduce(partialMessage) { partialMessage, key in
-			partialMessage.replacingOccurrences(of: #"\{\{\#(key)}\}"#, with: args[key] ?? "")
+			partialMessage.replacingOccurrences(of: #"\{\{\#(key)\}\}"#, with: args[key] ?? "")
 		}
 	}
 }

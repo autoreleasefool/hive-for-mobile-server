@@ -174,10 +174,8 @@ final class GameManager: GameService {
 				return
 			}
 
-			if let message = try? GameClientMessage(from: text),
-				 case .sendMessage = message,
-				 let resolver = try? GameActionResolver(game: game, userId: userId, message: message) {
-				resolver.resolve { _ in }
+			if let message = try? GameClientMessage(from: text), case let .sendMessage(string) = message {
+				game.sendResponseToAll(.message(userId, string))
 			} else {
 				ws.send(error: .invalidCommand, fromUser: userId)
 			}

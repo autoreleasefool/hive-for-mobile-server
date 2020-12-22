@@ -59,6 +59,12 @@ final class Token: Model {
 	}
 }
 
+extension User {
+	func generateToken(source: SessionSource) throws -> Token {
+		try Token.generateToken(forUser: self.requireID(), source: source)
+	}
+}
+
 // MARK: - Authentication
 
 extension Token: ModelTokenAuthenticatable {
@@ -71,19 +77,5 @@ extension Token: ModelTokenAuthenticatable {
 		}
 
 		return expiryDate > Date()
-	}
-}
-
-// MARK: - Response
-
-struct SessionToken: Content {
-	let userId: User.IDValue
-	let sessionId: Token.IDValue
-	let token: String
-
-	init(user: User, token: Token) throws {
-		self.userId = try user.requireID()
-		self.sessionId = try token.requireID()
-		self.token = token.value
 	}
 }

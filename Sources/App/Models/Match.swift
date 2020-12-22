@@ -225,67 +225,6 @@ extension Match {
 	}
 }
 
-// MARK: - Details
-
-extension Match {
-	struct Details: Content {
-		let id: Match.IDValue
-		let options: String
-		let gameOptions: String
-		let createdAt: Date?
-		let duration: TimeInterval?
-		let status: Status
-		let isComplete: Bool
-
-		var host: User.Summary?
-		var opponent: User.Summary?
-		var winner: User.Summary?
-		var moves: [MatchMovement.Summary] = []
-
-		init(from match: Match, withHost host: User? = nil, withOpponent opponent: User? = nil) throws {
-			self.id = try match.requireID()
-			self.options = match.options
-			self.gameOptions = match.gameOptions
-			self.createdAt = match.createdAt
-			self.duration = match.duration
-			self.status = match.status
-			self.isComplete = match.duration != nil
-			self.host = try User.Summary(from: host)
-			self.opponent = try User.Summary(from: opponent)
-
-			if match.$winner.id == match.$host.id {
-				self.winner = self.host
-			} else if match.$winner.id == match.$opponent.id {
-				self.winner = self.opponent
-			}
-		}
-	}
-}
-
-// MARK: - Create
-
-extension Match {
-	struct Create {
-		typealias Response = Match.Details
-	}
-}
-
-// MARK: - Join
-
-extension Match {
-	struct Join {
-		typealias Response = Match.Details
-	}
-}
-
-// MARK: - Spectate
-
-extension Match {
-	struct Spectate {
-		typealias Response = Match.Details
-	}
-}
-
 // MARK: - Delete
 
 extension Match {

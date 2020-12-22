@@ -193,66 +193,9 @@ extension User.Create {
 // MARK: - Logout
 
 extension User {
-	enum Logout {}
-}
-
-extension User.Logout {
-	struct Response: Content {
-		let success: Bool
-	}
-}
-
-// MARK: - Summary
-
-extension User {
-	struct Summary: Content {
-		let id: User.IDValue
-		let displayName: String
-		let elo: Int
-		let avatarUrl: String?
-
-		init(from user: User) throws {
-			self.id = try user.requireID()
-			self.displayName = user.displayName
-			self.elo = user.elo
-			self.avatarUrl = user.avatarUrl
-		}
-
-		init?(from user: User?) throws {
-			guard let user = user else { return nil }
-			try self.init(from: user)
-		}
-
-		init(from host: Match.Host) throws {
-			try self.init(from: host.model)
-		}
-
-		init(from opponent: Match.Opponent) throws {
-			try self.init(from: opponent.model)
-		}
-
-		init(from winner: Match.Winner) throws {
-			try self.init(from: winner.model)
-		}
-	}
-}
-
-// MARK: - Details
-
-extension User {
-	struct Details: Content {
-		let id: User.IDValue
-		let displayName: String
-		let elo: Int
-		let avatarUrl: String?
-		var activeMatches: [Match.Details] = []
-		var pastMatches: [Match.Details] = []
-
-		init(from user: User) throws {
-			self.id = try user.requireID()
-			self.displayName = user.displayName
-			self.elo = user.elo
-			self.avatarUrl = user.avatarUrl
-		}
+	static func findBy(appleIdentifier identifier: String, req: Request) -> EventLoopFuture<User?> {
+		User.query(on: req.db)
+			.filter(\.$appleUserIdentifier == identifier)
+			.first()
 	}
 }

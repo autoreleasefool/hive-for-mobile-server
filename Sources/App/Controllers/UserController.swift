@@ -28,20 +28,20 @@ struct UserController {
 
 	// MARK: - Content
 
-	func index(req: Request) throws -> EventLoopFuture<[User.Summary]> {
+	func index(req: Request) throws -> EventLoopFuture<[User.Public.Summary]> {
 		User.query(on: req.db)
 			.sort(\.$displayName)
 			.all()
-			.flatMapThrowing { try $0.map { try User.Summary(from: $0) } }
+			.flatMapThrowing { try $0.map { try $0.asPublicSummary() } }
 	}
 
-	func summary(req: Request) throws -> EventLoopFuture<User.Summary> {
+	func summary(req: Request) throws -> EventLoopFuture<User.Public.Summary> {
 		User.find(req.parameters.get(Parameter.user.rawValue), on: req.db)
 			.unwrap(or: Abort(.notFound))
-			.flatMapThrowing { try User.Summary(from: $0) }
+			.flatMapThrowing { try $0.asPublicSummary() }
 	}
 
-	func details(req: Request) throws -> EventLoopFuture<User.Details> {
+	func details(req: Request) throws -> EventLoopFuture<User.Public.Details> {
 		let userId = try id(from: req)
 
 		return User.query(on: req.db)
@@ -51,11 +51,11 @@ struct UserController {
 			.first()
 			.unwrap(or: Abort(.notFound))
 			.flatMapThrowing { user in
-				var response = try User.Details(from: user)
+				var response = try user.asPublicDetails()
 				for match in user.allMatches {
 					switch match.status {
-					case .active: response.activeMatches.append(try Match.Details(from: match))
-					case .ended: response.pastMatches.append(try Match.Details(from: match))
+					case .active: response.activeMatches.append(try match.asPublicDetails())
+					case .ended: response.pastMatches.append(try match.asPublicDetails())
 					case .notStarted: continue
 					}
 				}
@@ -63,7 +63,7 @@ struct UserController {
 			}
 	}
 
-	func list(req: Request) throws -> EventLoopFuture<[User.Details]> {
+	func list(req: Request) throws -> EventLoopFuture<[User.Public.Details]> {
 		let filter = try? req.query.get(at: Query.filter.rawValue) ?? ""
 		return User.query(on: req.db)
 			.with(\.$hostedMatches)
@@ -72,13 +72,13 @@ struct UserController {
 			.limit(25) // TODO: Remove limiting for user search, add pagination
 			.all()
 			.flatMapThrowing { users in
-				var response: [User.Details] = []
+				var response: [User.Public.Details] = []
 				for user in users {
-					guard var userResponse = try? User.Details(from: user) else { continue }
+					guard var userResponse = try? user.asPublicDetails() else { continue }
 					for match in user.allMatches {
 						switch match.status {
-						case .active: userResponse.activeMatches.append(try Match.Details(from: match))
-						case .ended: userResponse.pastMatches.append(try Match.Details(from: match))
+						case .active: userResponse.activeMatches.append(try match.asPublicDetails())
+						case .ended: userResponse.pastMatches.append(try match.asPublicDetails())
 						case .notStarted: continue
 						}
 					}
@@ -182,11 +182,11 @@ struct UserController {
 			.transform(to: User.Logout.Response(success: true))
 	}
 
-	func validate(req: Request) throws -> EventLoopFuture<SessionToken> {
+	func validate(req: Request) throws -> EventLoopFuture<User.Authentication.Response> {
 		let user = try req.auth.require(User.self)
 		let token = try req.auth.require(Token.self)
-		let session = try SessionToken(user: user, token: token)
-		return req.eventLoop.makeSucceededFuture(session)
+		let response = try User.Authentication.Response(accessToken: token.value, user: user.asPublicSummary())
+		return req.eventLoop.makeSucceededFuture(response)
 	}
 }
 

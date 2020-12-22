@@ -45,21 +45,3 @@ final class MatchMovement: Model, Content {
 		self.ordinal = ordinal
 	}
 }
-
-// MARK: - Summary
-
-extension MatchMovement {
-	struct Summary: Content {
-		let id: MatchMovement.IDValue
-		let notation: String
-		let ordinal: Int
-		let date: Date
-
-		init(from movement: MatchMovement) throws {
-			self.id = try movement.requireID()
-			self.date = movement.createdAt!
-			self.notation = movement.notation
-			self.ordinal = movement.ordinal
-		}
-	}
-}

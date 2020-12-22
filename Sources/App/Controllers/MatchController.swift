@@ -24,7 +24,7 @@ final class MatchController {
 
 	// MARK: Modify
 
-	func create(req: Request) throws -> EventLoopFuture<Match.Create.Response> {
+	func create(req: Request) throws -> EventLoopFuture<Match.Public.Details> {
 		let user = try req.auth.require(User.self)
 		let match = try Match(withHost: user)
 		req.logger.debug("Creating match with host \(String(describing: user.id))")
@@ -41,10 +41,10 @@ final class MatchController {
 					return req.eventLoop.makeFailedFuture(error)
 				}
 			}
-			.flatMapThrowing { try Match.Create.Response(from: $0, withHost: user) }
+			.flatMapThrowing { try Match.Public.Details(from: $0, withHost: user) }
 	}
 
-	func join(req: Request) throws -> EventLoopFuture<Match.Join.Response> {
+	func join(req: Request) throws -> EventLoopFuture<Match.Public.Details> {
 		let user = try req.auth.require(User.self)
 		req.logger.debug("User (\(String(describing: user.id))) joining match")
 
@@ -64,7 +64,7 @@ final class MatchController {
 					return try req.application
 						.gameService
 						.addUser(user, to: match, on: req)
-						.flatMapThrowing { try Match.Join.Response(from: match, withHost: match.host, withOpponent: user) }
+						.flatMapThrowing { try match.asPublicDetails(withHost: match.host, withOpponent: user) }
 				} catch {
 					return req.eventLoop.makeFailedFuture(error)
 				}
@@ -73,7 +73,7 @@ final class MatchController {
 
 	// MARK: Details
 
-	func details(req: Request) throws -> EventLoopFuture<Match.Details> {
+	func details(req: Request) throws -> EventLoopFuture<Match.Public.Details> {
 		let matchId = try id(from: req)
 
 		return Match.query(on: req.db)
@@ -85,20 +85,20 @@ final class MatchController {
 			.first()
 			.unwrap(or: Abort(.notFound))
 			.flatMapThrowing {
-				var response = try Match.Details(from: $0)
-				response.host = try User.Summary(from: $0.host)
+				var response = try $0.asPublicDetails()
+				response.host = try $0.host.asPublicSummary()
 				if let opponent = $0.opponent {
-					response.opponent = try User.Summary(from: opponent)
+					response.opponent = try opponent.asPublicSummary()
 				}
 				if let winner = $0.winner {
-					response.winner = try User.Summary(from: winner)
+					response.winner = try winner.asPublicSummary()
 				}
-				response.moves = try $0.moves.map { try MatchMovement.Summary(from: $0) }
+				response.moves = try $0.moves.map { try $0.asPublicSummary() }
 				return response
 			}
 	}
 
-	func listOpen(req: Request) throws -> EventLoopFuture<[Match.Details]> {
+	func listOpen(req: Request) throws -> EventLoopFuture<[Match.Public.Details]> {
 		Match.query(on: req.db)
 			.join(Match.Host.self, on: \Match.$host.$id == \Match.Host.$id, method: .inner)
 			.filter(\.$status == .notStarted)
@@ -107,14 +107,14 @@ final class MatchController {
 			.all()
 			.flatMapThrowing { matches in
 				try matches.map { match in
-					var response = try Match.Details(from: match)
-					response.host = try User.Summary(from: match.joined(Match.Host.self))
+					var response = try match.asPublicDetails()
+					response.host = try User.Public.Summary(from: match.joined(Match.Host.self))
 					return response
 				}
 			}
 	}
 
-	func listActive(req: Request) throws -> EventLoopFuture<[Match.Details]> {
+	func listActive(req: Request) throws -> EventLoopFuture<[Match.Public.Details]> {
 		Match.query(on: req.db)
 			.join(Match.Host.self, on: \Match.$host.$id == \Match.Host.$id, method: .inner)
 			.join(Match.Opponent.self, on: \Match.$opponent.$id == \Match.Opponent.$id, method: .inner)
@@ -123,9 +123,9 @@ final class MatchController {
 			.all()
 			.flatMapThrowing { matches in
 				try matches.map { match in
-					var response = try Match.Details(from: match)
-					response.host = try User.Summary(from: match.joined(Match.Host.self))
-					response.opponent = try User.Summary(from: match.joined(Match.Opponent.self))
+					var response = try match.asPublicDetails()
+					response.host = try User.Public.Summary(from: match.joined(Match.Host.self))
+					response.opponent = try User.Public.Summary(from: match.joined(Match.Opponent.self))
 					return response
 				}
 			}

@@ -52,7 +52,7 @@ final class Token: Model {
 
 		Token(
 			userId: userId,
-			token: [UInt8].random(count: 16).base64,
+			token: [UInt8].random(count: 32).base64,
 			source: source,
 			expiresAt: nil
 		)

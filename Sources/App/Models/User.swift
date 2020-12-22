@@ -15,13 +15,9 @@ final class User: Model, Content {
 	@ID(key: .id)
 	var id: UUID?
 
-	/// Unique ID of the user
-	@Field(key: "email")
-	var email: String
-
-	/// Hashed password
-	@Field(key: "password")
-	var password: String
+	// Unique identifier from Sign in with Apple
+	@Field(key: "apple_identifier")
+	var appleUserIdentifier: String
 
 	/// Display name of the user
 	@Field(key: "display_name")
@@ -49,11 +45,10 @@ final class User: Model, Content {
 	@Children(for: \.$opponent)
 	var joinedMatches: [Match]
 
-	init() { }
+	init() {}
 
-	init(email: String, password: String, displayName: String, isGuest: Bool) {
-		self.email = email
-		self.password = password
+	init(appleUserIdentifier: String, displayName: String, avatarUrl: String?, isGuest: Bool) {
+		self.appleUserIdentifier = appleUserIdentifier
 		self.displayName = displayName
 		self.elo = Elo.Rating.default
 		self.isAdmin = false
@@ -62,8 +57,7 @@ final class User: Model, Content {
 
 	init(
 		id: User.IDValue? = nil,
-		email: String,
-		password: String,
+		appleUserIdentifier: String,
 		displayName: String,
 		elo: Int,
 		avatarUrl: String?,
@@ -71,8 +65,7 @@ final class User: Model, Content {
 		isGuest: Bool
 	) {
 		self.id = id
-		self.email = email
-		self.password = password
+		self.appleUserIdentifier = appleUserIdentifier
 		self.displayName = displayName
 		self.elo = elo
 		self.avatarUrl = avatarUrl
@@ -141,56 +134,7 @@ extension User {
 	}
 }
 
-// MARK: - Authentication
-
-extension User: ModelAuthenticatable {
-	static let usernameKey = \User.$email
-	static let passwordHashKey = \User.$password
-
-	func verify(password: String) throws -> Bool {
-		try Bcrypt.verify(password, created: self.password)
-	}
-}
-
-// MARK: - Create
-
-extension User {
-	struct Create: Content {
-		let email: String
-		let displayName: String
-		let password: String
-		let verifyPassword: String
-		let avatarUrl: String?
-	}
-}
-
-extension User.Create: Validatable {
-	static func validations(_ validations: inout Validations) {
-		validations.add("displayName", as: String.self, is: !.empty && .alphanumeric && .count(3...24))
-		validations.add("email", as: String.self, is: .email)
-		validations.add("avatarUrl", as: String?.self, is: .nil || .url, required: false)
-	}
-}
-
-extension User.Create {
-	struct Response: Content {
-		let id: User.IDValue
-		let email: String
-		let displayName: String
-		let avatarUrl: String?
-		let token: SessionToken
-
-		init(from user: User, withToken token: Token) throws {
-			self.id = try user.requireID()
-			self.email = user.email
-			self.displayName = user.displayName
-			self.avatarUrl = user.avatarUrl
-			self.token = try SessionToken(user: user, token: token)
-		}
-	}
-}
-
-// MARK: - Logout
+// MARK: - Filters
 
 extension User {
 	static func findBy(appleIdentifier identifier: String, req: Request) -> EventLoopFuture<User?> {

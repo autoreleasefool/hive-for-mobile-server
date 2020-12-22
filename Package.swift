@@ -9,7 +9,8 @@ let package = Package(
 	dependencies: [
 		.package(url: "https://github.com/vapor/vapor.git", from: "4.0.0"),
 		.package(url: "https://github.com/vapor/fluent.git", from: "4.0.0"),
-		.package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.0.0-rc"),
+		.package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.0.0"),
+		.package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
 		.package(name: "HiveEngine", url: "https://github.com/josephroquedev/hive-engine.git", from: "3.1.2"),
 	],
 	targets: [
@@ -19,6 +20,7 @@ let package = Package(
 				.product(name: "Fluent", package: "fluent"),
 				.product(name: "FluentSQLiteDriver", package: "fluent-sqlite-driver"),
 				.product(name: "Vapor", package: "vapor"),
+				.product(name: "JWT", package: "jwt"),
 				.product(name: "HiveEngine", package: "HiveEngine"),
 			],
 			swiftSettings: [

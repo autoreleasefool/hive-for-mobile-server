@@ -88,6 +88,90 @@ struct UserController {
 			}
 	}
 
+	// MARK: - Authentication
+	func createGuest(req: Request) throws -> EventLoopFuture<User.Create.Response> {
+		do {
+			let hash = try Bcrypt.hash(UUID().uuidString)
+			let user = User(
+				email: "guest-\(UUID().uuidString)@example.com",
+				password: hash,
+				displayName: "Guest #\(User.generateRandomGuestName())",
+				avatarUrl: nil,
+				isGuest: true
+			)
+
+			return user.save(on: req.db)
+				.flatMap {
+					do {
+						let token = try user.generateToken(source: .signup)
+						return  token.save(on: req.db)
+							.map { token }
+					} catch {
+						return req.eventLoop.makeFailedFuture(error)
+					}
+				}
+				.flatMapThrowing {
+					try User.Create.Response(from: user, withToken: $0)
+				}
+		} catch  {
+			return req.eventLoop.makeFailedFuture(error)
+		}
+	}
+
+	func create(req: Request) throws -> EventLoopFuture<User.Create.Response> {
+		try User.Create.validate(req)
+		let create = try req.content.decode(User.Create.self)
+
+		guard create.password == create.verifyPassword else {
+			throw Abort(.badRequest, reason: "Password and verification must match.")
+		}
+
+		return User.query(on: req.db)
+			.filter(\.$email == create.email.lowercased())
+			.first()
+			.flatMap { existingUser -> EventLoopFuture<User> in
+				guard existingUser == nil else {
+					return req.eventLoop.makeFailedFuture(
+						Abort(.badRequest, reason: "User with email already exists.")
+					)
+				}
+
+				do {
+					let hash = try Bcrypt.hash(create.password)
+					let user = User(
+						email: create.email.lowercased(),
+						password: hash,
+						displayName: create.displayName,
+						avatarUrl: nil,
+						isGuest: false
+					)
+					return user.save(on: req.db)
+						.map { user }
+				} catch {
+					return req.eventLoop.makeFailedFuture(error)
+				}
+			}
+			.flatMap { user in
+				do {
+					let token = try user.generateToken(source: .signup)
+					return token.save(on: req.db)
+						.map { (user, token) }
+				} catch {
+					return req.eventLoop.makeFailedFuture(error)
+				}
+			}
+			.flatMapThrowing { (user, token) in
+				try User.Create.Response(from: user, withToken: token)
+			}
+	}
+
+	func login(req: Request) throws -> EventLoopFuture<SessionToken> {
+		let user = try req.auth.require(User.self)
+		let token = try user.generateToken(source: .login)
+		return token.save(on: req.db)
+			.flatMapThrowing { try SessionToken(user: user, token: token) }
+	}
+
 	func logout(req: Request) throws -> EventLoopFuture<User.Logout.Response> {
 		guard let token = req.headers.bearerAuthorization?.token else {
 			throw Abort(.badRequest, reason: "Token must be supplied to logout")
@@ -102,7 +186,17 @@ struct UserController {
 	func validate(req: Request) throws -> EventLoopFuture<User.Authentication.Response> {
 		let user = try req.auth.require(User.self)
 		let token = try req.auth.require(Token.self)
-		let response = try User.Authentication.Response(accessToken: token.value, user: user.asPublicSummary())
+		guard let appVersion = try req.appVersion() else {
+			throw Abort(.imATeapot, reason: "App version `null` is not supported")
+		}
+
+		let response: User.Authentication.Response
+		if appVersion >= SemVer(majorVersion: 1, minorVersion: 4, patchVersion: 0) {
+			response = try .v2(User.Authentication.SuccessResponse(accessToken: token.value, user: user.asPublicSummary()))
+		} else {
+			response = try .v1(SessionToken(user: user, token: token))
+		}
+
 		return req.eventLoop.makeSucceededFuture(response)
 	}
 }
@@ -115,6 +209,8 @@ extension UserController: RouteCollection {
 
 		// Public routes
 
+		users.post("signup", use: create)
+		users.post("guestSignup", use: createGuest)
 		users.get("all", use: list)
 		users.group(.parameter(Parameter.user.rawValue)) { user in
 			user.get("details", use: details)
@@ -122,6 +218,11 @@ extension UserController: RouteCollection {
 		}
 
 		// Protected routes
+
+		let passwordProtected = users
+			.grouped(User.authenticator())
+			.grouped(User.guardMiddleware())
+		passwordProtected.post("login", use: login)
 
 		let tokenProtected = users
 			.grouped(Token.authenticator())

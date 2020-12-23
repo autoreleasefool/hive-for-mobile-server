@@ -15,9 +15,17 @@ final class User: Model, Content {
 	@ID(key: .id)
 	var id: UUID?
 
-	// Unique identifier from Sign in with Apple
+	/// Unique email for the user
+	@Field(key: "email")
+	var email: String
+
+	/// Hashed password
+	@Field(key: "password")
+	var password: String
+
+	/// Unique identifier from Sign in with Apple
 	@Field(key: "apple_identifier")
-	var appleUserIdentifier: String
+	var appleUserIdentifier: String?
 
 	/// Display name of the user
 	@Field(key: "display_name")
@@ -53,11 +61,25 @@ final class User: Model, Content {
 		self.elo = Elo.Rating.default
 		self.isAdmin = false
 		self.isGuest = isGuest
+
+		self.email = ""
+		self.password = ""
+	}
+
+	init(email: String, password: String, displayName: String, avatarUrl: String?, isGuest: Bool) {
+		self.email = email
+		self.password = password
+		self.displayName = displayName
+		self.elo = Elo.Rating.default
+		self.isAdmin = false
+		self.isGuest = isGuest
 	}
 
 	init(
 		id: User.IDValue? = nil,
-		appleUserIdentifier: String,
+		email: String?,
+		password: String?,
+		appleUserIdentifier: String?,
 		displayName: String,
 		elo: Int,
 		avatarUrl: String?,
@@ -65,6 +87,8 @@ final class User: Model, Content {
 		isGuest: Bool
 	) {
 		self.id = id
+		self.email = email ?? ""
+		self.password = password ?? ""
 		self.appleUserIdentifier = appleUserIdentifier
 		self.displayName = displayName
 		self.elo = elo
@@ -141,5 +165,17 @@ extension User {
 		User.query(on: req.db)
 			.filter(\.$appleUserIdentifier == identifier)
 			.first()
+	}
+}
+
+// MARK: - Authentication
+
+extension User: ModelAuthenticatable {
+	static let usernameKey = \User.$email
+	static let passwordHashKey = \User.$password
+
+	func verify(password: String) throws -> Bool {
+		guard !self.email.isEmpty && !self.password.isEmpty else { return false }
+		return try Bcrypt.verify(password, created: self.password)
 	}
 }

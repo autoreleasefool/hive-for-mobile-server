@@ -191,10 +191,10 @@ struct UserController {
 		}
 
 		let response: User.Authentication.Response
-		if appVersion >= SemVer(majorVersion: 1, minorVersion: 4, patchVersion: 0) {
-			response = try .v2(User.Authentication.SuccessResponse(accessToken: token.value, user: user.asPublicSummary()))
-		} else {
+		if appVersion <= SemVer(majorVersion: 1, minorVersion: 3, patchVersion: 2) {
 			response = try .v1(SessionToken(user: user, token: token))
+		} else {
+			response = try .v2(User.Authentication.SuccessResponse(accessToken: token.value, user: user.asPublicSummary()))
 		}
 
 		return req.eventLoop.makeSucceededFuture(response)

@@ -101,7 +101,7 @@ struct UserController {
 			)
 
 			return user.save(on: req.db)
-				.flatMap {
+				.flatMap { _ -> EventLoopFuture<Token> in
 					do {
 						let token = try user.generateToken(source: .signup)
 						return  token.save(on: req.db)
@@ -110,8 +110,12 @@ struct UserController {
 						return req.eventLoop.makeFailedFuture(error)
 					}
 				}
-				.flatMapThrowing {
-					try User.Create.Response(from: user, withToken: $0)
+				.flatMap {
+					do {
+						return try User.buildCreateResponse(req, user, $0)
+					} catch {
+						return req.eventLoop.makeFailedFuture(error)
+					}
 				}
 		} catch  {
 			return req.eventLoop.makeFailedFuture(error)
@@ -151,7 +155,7 @@ struct UserController {
 					return req.eventLoop.makeFailedFuture(error)
 				}
 			}
-			.flatMap { user in
+			.flatMap { user -> EventLoopFuture<(User, Token)> in
 				do {
 					let token = try user.generateToken(source: .signup)
 					return token.save(on: req.db)
@@ -160,16 +164,26 @@ struct UserController {
 					return req.eventLoop.makeFailedFuture(error)
 				}
 			}
-			.flatMapThrowing { (user, token) in
-				try User.Create.Response(from: user, withToken: token)
+			.flatMap { (user, token) in
+				do {
+					return try User.buildCreateResponse(req, user, token)
+				} catch {
+					return req.eventLoop.makeFailedFuture(error)
+				}
 			}
 	}
 
-	func login(req: Request) throws -> EventLoopFuture<SessionToken> {
+	func login(req: Request) throws -> EventLoopFuture<User.Authentication.Response> {
 		let user = try req.auth.require(User.self)
 		let token = try user.generateToken(source: .login)
 		return token.save(on: req.db)
-			.flatMapThrowing { try SessionToken(user: user, token: token) }
+			.flatMap {
+				do {
+					return try User.buildAuthenticationResponse(req, user, token)
+				} catch {
+					return req.eventLoop.makeFailedFuture(error)
+				}
+			}
 	}
 
 	func logout(req: Request) throws -> EventLoopFuture<User.Logout.Response> {
@@ -186,18 +200,7 @@ struct UserController {
 	func validate(req: Request) throws -> EventLoopFuture<User.Authentication.Response> {
 		let user = try req.auth.require(User.self)
 		let token = try req.auth.require(Token.self)
-		guard let appVersion = try req.appVersion() else {
-			throw Abort(.imATeapot, reason: "App version `null` is not supported")
-		}
-
-		let response: User.Authentication.Response
-		if appVersion <= SemVer(majorVersion: 1, minorVersion: 3, patchVersion: 2) {
-			response = try .v1(SessionToken(user: user, token: token))
-		} else {
-			response = try .v2(User.Authentication.SuccessResponse(accessToken: token.value, user: user.asPublicSummary()))
-		}
-
-		return req.eventLoop.makeSucceededFuture(response)
+		return try User.buildAuthenticationResponse(req, user, token)
 	}
 
 	func update(req: Request) throws -> EventLoopFuture<User.Public.Summary> {

@@ -28,8 +28,8 @@ final class SignInWithAppleController {
 					} else {
 						return self.signUp(
 							appleIdentityToken: appleIdentityToken,
-							displayName: body.displayName,
-							avatarUrl: body.avatarUrl,
+							displayName: nil,
+							avatarUrl: nil,
 							req: req
 						)
 					}
@@ -45,7 +45,7 @@ final class SignInWithAppleController {
 	) -> EventLoopFuture<User.Authentication.Response> {
 		let user = User(
 			appleUserIdentifier: appleIdentityToken.subject.value,
-			displayName: displayName ?? "Anonymous",
+			displayName: displayName ?? User.anonymousDisplayName,
 			avatarUrl: avatarUrl,
 			isGuest: false
 		)
@@ -79,7 +79,7 @@ final class SignInWithAppleController {
 
 extension SignInWithAppleController: RouteCollection {
 	func boot(routes: RoutesBuilder) throws {
-		let siwaUsers = routes.grouped("api", "users", "siwa")
-		siwaUsers.post(use: authHandler)
+		let siwaUsers = routes.grouped("api", "siwa")
+		siwaUsers.post("auth", use: authHandler)
 	}
 }

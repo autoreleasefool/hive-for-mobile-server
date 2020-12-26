@@ -199,6 +199,22 @@ struct UserController {
 
 		return req.eventLoop.makeSucceededFuture(response)
 	}
+
+	func update(req: Request) throws -> EventLoopFuture<User.Public.Summary> {
+		let user = try req.auth.require(User.self)
+		let update = try req.content.decode(User.Public.Update.self)
+
+		if let displayName = update.displayName {
+			user.displayName = displayName
+		}
+
+		if let avatarUrl = update.avatarUrl {
+			user.avatarUrl = avatarUrl
+		}
+
+		return user.save(on: req.db)
+			.flatMapThrowing { try user.asPublicSummary() }
+	}
 }
 
 // MARK: - RouteCollection
@@ -229,6 +245,7 @@ extension UserController: RouteCollection {
 			.grouped(Token.guardMiddleware())
 		tokenProtected.delete("logout", use: logout)
 		tokenProtected.get("validate", use: validate)
+		tokenProtected.post("update", use: update)
 
 		let adminProtected = users.grouped(AdminMiddleware())
 		adminProtected.get(use: index)

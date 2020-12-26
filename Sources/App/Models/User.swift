@@ -12,6 +12,8 @@ import Vapor
 final class User: Model, Content {
 	static let schema = "users"
 
+	static let anonymousDisplayName = "Anonymous"
+
 	@ID(key: .id)
 	var id: UUID?
 
@@ -177,5 +179,21 @@ extension User: ModelAuthenticatable {
 	func verify(password: String) throws -> Bool {
 		guard !self.email.isEmpty && !self.password.isEmpty else { return false }
 		return try Bcrypt.verify(password, created: self.password)
+	}
+}
+
+// MARK: - Validations
+
+extension Validations {
+	mutating func validateDisplayName() {
+		add("displayName", as: String.self, is: .alphanumeric && .count(3...24) && !.in(User.anonymousDisplayName))
+	}
+
+	mutating func validateAvatarUrl() {
+		add("avatarUrl", as: String.self, is: .url, required: false)
+	}
+
+	mutating func validateEmail() {
+		add("email", as: String.self, is: .email)
 	}
 }

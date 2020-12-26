@@ -78,15 +78,6 @@ extension User.Authentication {
 extension User.SignInWithApple {
 	struct Request: Content {
 		let appleIdentityToken: String
-		let displayName: String?
-		let avatarUrl: String?
-	}
-}
-
-extension User.SignInWithApple.Request: Validatable {
-	static func validations(_ validations: inout Validations) {
-		validations.add("displayName", as: String?.self, is: .nil || (.alphanumeric && .count(3...24)))
-		validations.add("avatarUrl", as: String?.self, is: .nil || .url)
 	}
 }
 
@@ -104,9 +95,9 @@ extension User {
 
 extension User.Create: Validatable {
 	static func validations(_ validations: inout Validations) {
-		validations.add("displayName", as: String.self, is: !.empty && .alphanumeric && .count(3...24))
-		validations.add("email", as: String.self, is: .email)
-		validations.add("avatarUrl", as: String?.self, is: .nil || .url, required: false)
+		validations.validateDisplayName()
+		validations.validateEmail()
+		validations.validateAvatarUrl()
 	}
 }
 

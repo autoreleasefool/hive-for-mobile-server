@@ -78,3 +78,19 @@ extension User.Public {
 		}
 	}
 }
+
+// MARK: - Update
+
+extension User.Public {
+	struct Update: Content {
+		let displayName: String?
+		let avatarUrl: String?
+	}
+}
+
+extension User.Public.Update: Validatable {
+	static func validations(_ validations: inout Validations) {
+		validations.validateDisplayName()
+		validations.validateAvatarUrl()
+	}
+}

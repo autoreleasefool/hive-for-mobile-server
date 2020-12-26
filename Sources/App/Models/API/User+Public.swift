@@ -26,12 +26,14 @@ extension User.Public {
 		let displayName: String
 		let elo: Int
 		let avatarUrl: String?
+		let isGuest: Bool
 
 		init(from user: User) throws {
 			self.id = try user.requireID()
 			self.displayName = user.displayName
 			self.elo = user.elo
 			self.avatarUrl = user.avatarUrl
+			self.isGuest = user.isGuest
 		}
 
 		init?(from user: User?) throws {
@@ -67,6 +69,7 @@ extension User.Public {
 		let displayName: String
 		let elo: Int
 		let avatarUrl: String?
+		let isGuest: Bool
 		var activeMatches: [Match.Public.Details] = []
 		var pastMatches: [Match.Public.Details] = []
 
@@ -75,6 +78,7 @@ extension User.Public {
 			self.displayName = user.displayName
 			self.elo = user.elo
 			self.avatarUrl = user.avatarUrl
+			self.isGuest = user.isGuest
 		}
 	}
 }

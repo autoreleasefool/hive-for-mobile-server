@@ -68,6 +68,7 @@ struct UserController {
 		return User.query(on: req.db)
 			.with(\.$hostedMatches)
 			.with(\.$joinedMatches)
+			.filter(\.$displayName != User.anonymousDisplayName)
 			.filter(\.$displayName ~~ (filter ?? ""))
 			.filter(\.$isGuest == false)
 			.limit(25) // TODO: Remove limiting for user search, add pagination

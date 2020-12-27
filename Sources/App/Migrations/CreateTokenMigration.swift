@@ -1,5 +1,5 @@
 //
-//  CreateToken.swift
+//  CreateTokenMigration.swift
 //  Hive-for-Mobile-Server
 //
 //  Created by Joseph Roque on 2020-06-15.
@@ -8,7 +8,7 @@
 
 import Fluent
 
-struct CreateToken: Migration {
+struct CreateTokenMigration: Migration {
 	func prepare(on database: Database) -> EventLoopFuture<Void> {
 		database.schema(Token.schema)
 			.field("id", .uuid, .identifier(auto: true))

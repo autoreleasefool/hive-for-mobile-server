@@ -1,5 +1,5 @@
 //
-//  CreateUser.swift
+//  CreateUserMigration.swift
 //  Hive-for-Mobile-Server
 //
 //  Created by Joseph Roque on 2020-06-13.
@@ -8,7 +8,7 @@
 
 import Fluent
 
-struct CreateUser: Migration {
+struct CreateUserMigration: Migration {
 	func prepare(on database: Database) -> EventLoopFuture<Void> {
 		database.schema(User.schema)
 			.field("id", .uuid, .identifier(auto: true))

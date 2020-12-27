@@ -1,5 +1,5 @@
 //
-//  CreateMatch.swift
+//  CreateMatchMigration.swift
 //  Hive-for-Mobile-Server
 //
 //  Created by Joseph Roque on 2020-06-16.
@@ -8,7 +8,7 @@
 
 import Fluent
 
-struct CreateMatch: Migration {
+struct CreateMatchMigration: Migration {
 	func prepare(on database: Database) -> EventLoopFuture<Void> {
 		database.schema(Match.schema)
 			.field("id", .uuid, .identifier(auto: true))

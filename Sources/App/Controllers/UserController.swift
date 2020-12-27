@@ -69,6 +69,7 @@ struct UserController {
 			.with(\.$hostedMatches)
 			.with(\.$joinedMatches)
 			.filter(\.$displayName ~~ (filter ?? ""))
+			.filter(\.$isGuest == false)
 			.limit(25) // TODO: Remove limiting for user search, add pagination
 			.all()
 			.flatMapThrowing { users in

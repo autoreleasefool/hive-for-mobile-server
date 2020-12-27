@@ -204,6 +204,7 @@ struct UserController {
 	}
 
 	func update(req: Request) throws -> EventLoopFuture<User.Public.Summary> {
+		try User.Public.Update.validate(req)
 		let user = try req.auth.require(User.self)
 		let update = try req.content.decode(User.Public.Update.self)
 
@@ -213,6 +214,15 @@ struct UserController {
 
 		if let avatarUrl = update.avatarUrl {
 			user.avatarUrl = avatarUrl
+		}
+
+		// Validations
+		if user.displayName == User.anonymousDisplayName
+				&& (update.displayName == nil || update.displayName?.isEmpty == true) {
+			throw Abort(.badRequest, reason: "Display name cannot be `Anonymous`")
+		}
+		if user.displayName == User.anonymousDisplayName {
+			throw Abort(.badRequest, reason: "Display name cannot be `Anonymous`")
 		}
 
 		return user.save(on: req.db)

@@ -3,6 +3,7 @@
 //  Hive-for-Mobile-Server
 //
 //  Created by Joseph Roque on 2020-11-29.
+//  Copyright © 2020 Joseph Roque. All rights reserved.
 //
 
 import Fluent

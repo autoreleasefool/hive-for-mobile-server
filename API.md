@@ -124,8 +124,8 @@
 
 **GET** api/users/all - List of all users
 
-* Params
-  * **filter:** Filter to users with substring in name 
+- Params
+  - **filter:** Filter to users with substring in name
 
 <summary>Example response</summary>
 <details>
@@ -356,13 +356,13 @@ Endpoint: `<SERVER_URL>/matchID/play`
 
 Once connected to a WebSocket, you can send commands of the following formats:
 
-**SET _option_ _value_**: Set the value of an option _option_ to _value_. See the [Match options](/Sources/App/Models/Match.swift) and the [Hive Engine](https://github.com/josephroquedev/hive-engine) for a list of options that are available.
+**SET _option_ _value_**: Set the value of an option _option_ to _value_. See the [Match options](/Sources/App/Models/Match.swift) and the [Hive Engine](https://github.com/autoreleasefool/hive-engine) for a list of options that are available.
 
 **MSG _message_**: Send a message _message_ to your opponent.
 
 **GLHF**: Indicate that you are ready for the game to begin
 
-**MOV _movement_**: Make a move. See the [Hive Engine](https://github.com/josephroquedev/hive-engine) for movement notation
+**MOV _movement_**: Make a move. See the [Hive Engine](https://github.com/autoreleasefool/hive-engine) for movement notation
 
 **FF**: Forfeit the current game.
 
@@ -370,11 +370,11 @@ Once connected to a WebSocket, you can send commands of the following formats:
 
 In response to your commands, or in response to the commands of other users in the same match, you can receive responses of the following formats:
 
-**STATE _gameStateString_**: The current state of the game. See the [Hive Engine](https://github.com/josephroquedev/hive-engine) for the format of this String.
+**STATE _gameStateString_**: The current state of the game. See the [Hive Engine](https://github.com/autoreleasefool/hive-engine) for the format of this String.
 
 **WINNER _userId_**: The game has ended and the winner has been determined. The winner is either `userId` or `null` if the game ended in a tie.
 
-**SET _option_ _value_**: Set the value of an option _option_ to _value_. See the [Match options](/Sources/App/Models/Match.swift) and the [Hive Engine](https://github.com/josephroquedev/hive-engine) for a list of options that are available.
+**SET _option_ _value_**: Set the value of an option _option_ to _value_. See the [Match options](/Sources/App/Models/Match.swift) and the [Hive Engine](https://github.com/autoreleasefool/hive-engine) for a list of options that are available.
 
 **READY _userID_ _isReady_**: Indicate that a player is ready or not.
 
@@ -382,4 +382,4 @@ In response to your commands, or in response to the commands of other users in t
 
 **FF _userID_**: A user has forfeit the game.
 
-**ERR _code_ _description_** An error has occurred. See  [WSServerResponseError](./Sources/App/WebSocket/Message/Response/WSServerResponseError.swift) for possible errors.
+**ERR _code_ _description_** An error has occurred. See [WSServerResponseError](./Sources/App/WebSocket/Message/Response/WSServerResponseError.swift) for possible errors.

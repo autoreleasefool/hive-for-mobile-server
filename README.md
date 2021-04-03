@@ -48,3 +48,7 @@ To set up the app to be deployed, run the `script/prod-setup` script to copy the
 1. Make your changes and run `swiftlint` to ensure there are no lint errors
 1. TODO: Testing
 1. Open a PR with your changes (don't include ngrok URLs) 🎉
+
+## Notice
+
+Hive for Mobile Server is not affiliated with Gen42 Games in any way.

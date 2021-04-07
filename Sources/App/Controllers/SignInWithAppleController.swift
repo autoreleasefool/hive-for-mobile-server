@@ -11,6 +11,7 @@ import Vapor
 
 final class SignInWithAppleController {
 	func authHandler(req: Request) throws -> EventLoopFuture<User.Authentication.Response> {
+		req.logger.debug("Handling Sign In With Apple request")
 		let body = try req.content.decode(User.SignInWithApple.Request.self)
 
 		return req.jwt.apple.verify(
@@ -20,12 +21,14 @@ final class SignInWithAppleController {
 			User.findBy(appleIdentifier: appleIdentityToken.subject.value, req: req)
 				.flatMap { user in
 					if let user = user {
+						req.logger.debug("Logging in user \(String(describing: user.id))")
 						return self.login(
 							appleIdentityToken: appleIdentityToken,
 							user: user,
 							req: req
 						)
 					} else {
+						req.logger.debug("Signing up new user")
 						return self.signUp(
 							appleIdentityToken: appleIdentityToken,
 							displayName: nil,

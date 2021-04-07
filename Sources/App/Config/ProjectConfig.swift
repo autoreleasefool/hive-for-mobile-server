@@ -9,7 +9,9 @@
 import Vapor
 
 enum ProjectConfig {
-	struct SignInWithApple {
+	static let domainHost = Environment.get("PROJECT_HOST_NAME") ?? "hiveapi.josephroque.dev"
+
+	enum SignInWithApple {
 		static let applicationIdentifier = Environment.get("SIWA_APPLICATION_IDENTIFIER")
 	}
 }

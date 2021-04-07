@@ -64,7 +64,7 @@ final class User: Model, Content {
 		self.isAdmin = false
 		self.isGuest = isGuest
 
-		self.email = ""
+		self.email = "\(appleUserIdentifier)@\(ProjectConfig.domainHost)"
 		self.password = ""
 	}
 
@@ -177,7 +177,11 @@ extension User: ModelAuthenticatable {
 	static let passwordHashKey = \User.$password
 
 	func verify(password: String) throws -> Bool {
-		guard !self.email.isEmpty && !self.password.isEmpty else { return false }
+		if let appleUserIdentifier = appleUserIdentifier {
+			// Prevent logging into SIWA accounts with email/password
+			guard appleUserIdentifier.isEmpty else { return false }
+		}
+		guard !email.isEmpty && !password.isEmpty else { return false }
 		return try Bcrypt.verify(password, created: self.password)
 	}
 }

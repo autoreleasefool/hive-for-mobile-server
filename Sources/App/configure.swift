@@ -25,6 +25,16 @@ public func configure(_ app: Application) throws {
 	app.migrations.add(CreateTokenMigration())
 	app.migrations.add(CreateMatchMigration())
 	app.migrations.add(CreateMatchMovementMigration())
+	
+	switch app.environment {
+	case .development, .testing:
+		app.migrations.add(PopulateDevelopmentDataMigration())
+	case .production:
+		break
+	default:
+		break
+	}
+
 	try app.autoMigrate().wait()
 
 	app.middleware.use(SupportedAppVersionMiddleware())
